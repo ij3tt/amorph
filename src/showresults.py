@@ -2,7 +2,7 @@
 # uses dnest_functions.py as a fallback
 try:
     import dnest4.classic as dn4
-except:
+except ImportError:
     import dnest_functions as dn4
 
 dn4.postprocess()

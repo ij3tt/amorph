@@ -31,6 +31,8 @@ import argparse
 import os
 import numpy as np
 
+import amorph_stats
+
 
 def load_data(filename):
     """
@@ -76,14 +78,11 @@ def column_block(indices, first, n):
 
 def amorphous_fraction(wide, narrow):
     """
-    Posterior mean of (amorphous)/(amorphous + crystalline), calculated
-    from the integrals of the two components. The same definition as in
-    display.py.
+    Posterior mean of (amorphous)/(amorphous + crystalline) in percent,
+    calculated from the integrals of the two components with the same
+    function as display.py.
     """
-    wi = wide.sum(axis=1)
-    ni = narrow.sum(axis=1)
-    with np.errstate(invalid="ignore", divide="ignore"):
-        frac = wi / (wi + ni)
+    frac = amorph_stats.amorphous_fraction(wide, narrow)
     frac = frac[np.isfinite(frac)]
     if frac.size == 0:
         return 0.0

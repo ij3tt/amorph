@@ -28,6 +28,7 @@ bash scripts/smoke_test.sh build/AMORPH build/smoke
 mkdir -p dist/linux
 cp build/AMORPH dist/linux/
 cp src/OPTIONS src/OPTIONS_AGGRESSIVE src/config.yaml dist/linux/
-cp src/showresults.py src/display.py src/dnest_functions.py dist/linux/
+cp src/showresults.py src/display.py src/dnest_functions.py \
+   src/amorph_stats.py dist/linux/
 cp src/easy_data.txt dist/linux/
 ls -l dist/linux
