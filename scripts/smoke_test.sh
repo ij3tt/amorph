@@ -13,16 +13,19 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BIN="${1:-${REPO_ROOT}/build/AMORPH}"
 WORK="${2:-${REPO_ROOT}/build/smoke}"
 
-if [ ! -x "${BIN}" ]; then
-    echo "smoke_test: executable not found or not runnable: ${BIN}" >&2
+if [ ! -f "${BIN}" ]; then
+    echo "smoke_test: executable not found: ${BIN}" >&2
     exit 1
 fi
 
-echo "smoke_test: binary   = ${BIN}"
-echo "smoke_test: workdir  = ${WORK}"
-
+# Resolve to absolute paths: the script changes directory further down.
+BIN="$(cd "$(dirname "${BIN}")" && pwd)/$(basename "${BIN}")"
 rm -rf "${WORK}"
 mkdir -p "${WORK}"
+WORK="$(cd "${WORK}" && pwd)"
+
+echo "smoke_test: binary   = ${BIN}"
+echo "smoke_test: workdir  = ${WORK}"
 
 # The sampler reads config.yaml from the current directory.
 cp "${REPO_ROOT}/src/config.yaml" "${WORK}/config.yaml"
