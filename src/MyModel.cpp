@@ -14,8 +14,9 @@ namespace AMORPH
 // Static things
 Data MyModel::data;
 const DNest4::Laplace MyModel::laplace(0.0, 20.0);
-std::vector<double> MyModel::x_knots{data.get_x_min(),
-                                            10.0, 40.0, data.get_x_max()};
+// The outer background knots are the edges of the data, set by load_data():
+// they cannot be read from the data here, before they are loaded.
+std::vector<double> MyModel::x_knots{0.0, 10.0, 40.0, 0.0};
 
 // Constructor
 MyModel::MyModel()
@@ -247,6 +248,10 @@ double MyModel::log_likelihood() const
 
 void MyModel::set_control_points(const std::tuple<double, double>& cps)
 {
+    if(std::get<0>(cps) >= std::get<1>(cps))
+        throw std::invalid_argument("The background control points must be "
+                                    "in increasing order.");
+
     std::tie(x_knots[1], x_knots[2]) = cps;
 }
 
@@ -323,6 +328,9 @@ std::string MyModel::description() const
 void MyModel::load_data(const char* filename)
 {
     data.load(filename);
+
+    x_knots[0] = data.get_x_min();
+    x_knots[3] = data.get_x_max();
 }
 
 } // namespace AMORPH

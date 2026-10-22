@@ -9,7 +9,8 @@ namespace AMORPH
 /*
 * The piecewise linear background curve through four knots
 * (x_knots[i], y_knots[i]). The inner knots x_knots[1] and x_knots[2] split
-* the x-axis into three segments.
+* the x-axis into three segments. An outer segment without length (the data
+* end at a control point) takes the value of its inner knot.
 */
 double piecewise_linear(const std::vector<double>& x_knots,
                         const std::vector<double>& y_knots, double x);
