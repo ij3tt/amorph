@@ -45,6 +45,6 @@ setup_python() {
         python3 -m venv "${venv}"
     fi
     "${venv}/bin/python" -m pip install -q --upgrade pip
-    "${venv}/bin/python" -m pip install -q numpy matplotlib pandas pyyaml
+    "${venv}/bin/python" -m pip install -q numpy matplotlib pandas pyyaml pytest
     export PATH="${venv}/bin:${PATH}"
 }
