@@ -1,0 +1,88 @@
+name: Validate
+
+# Compares the results of two versions of AMORPH on the bundled datasets: a
+# reference version (master by default) and the version under test. Every
+# run is a real sampler run, which is too long for the build workflow and
+# for GitVerse CI (30 minutes per job), so this runs on demand only:
+#   - "Run workflow" on the Actions tab (the reference is an input), or
+#   - adding the label "validate" to a pull request (the reference is the
+#     base of the pull request).
+# Both versions are post-processed with the scripts of the tested version,
+# so the comparison shows the differences of the sampler and the model.
+
+on:
+  workflow_dispatch:
+    inputs:
+      reference:
+        description: Reference version (branch, tag or commit)
+        default: master
+      saves:
+        description: Number of saved samples per run
+        default: "5000"
+  pull_request:
+    types: [labeled]
+
+jobs:
+  run:
+    name: ${{ matrix.version }} / ${{ matrix.dataset.file }}
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'validate'
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        version: [reference, test]
+        dataset:
+          - {id: easy, file: easy_data.txt}
+          - {id: glass0, file: 0%glass_rhyolite_Emperyon.txt}
+          - {id: glass50, file: 50% glass .02step3secdwell.txt}
+          - {id: glass90, file: 90%_glass_basalt_Emperyon.txt}
+    env:
+      REFERENCE: ${{ inputs.reference || github.event.pull_request.base.sha }}
+      TESTED: ${{ github.event.pull_request.head.sha || github.sha }}
+      SAVES: ${{ inputs.saves || '5000' }}
+      DATA_FILE: ${{ matrix.dataset.file }}
+    steps:
+      - name: Check out the tested version (for the scripts)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TESTED }}
+
+      - name: Check out the version to run
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.version == 'reference' && env.REFERENCE || env.TESTED }}
+          path: under-test
+
+      - name: Run AMORPH and summarise the posterior
+        run: bash scripts/ci/validate_run.sh under-test "${DATA_FILE}" "${SAVES}" results
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: summary-${{ matrix.version }}-${{ matrix.dataset.id }}
+          path: results/
+          if-no-files-found: ignore
+
+  compare:
+    name: Compare
+    needs: run
+    if: always() && (github.event_name == 'workflow_dispatch' || github.event.label.name == 'validate')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: summary-*
+          path: summaries
+
+      - name: Write the comparison
+        run: |
+          python3 scripts/ci/compare_runs.py summaries > comparison.md
+          cat comparison.md >> "${GITHUB_STEP_SUMMARY}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: comparison
+          path: comparison.md

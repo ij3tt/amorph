@@ -12,19 +12,15 @@ endif()
 option(AMORPH_STATIC_LINK "Link the executable statically (mingw/Windows)" ON)
 
 # ------------------------------------------------------------------ yaml-cpp
-# Only used for reading config.yaml
-include(FetchContent)
+# Only used for reading config.yaml. Vendored under external/yaml-cpp (MIT
+# licence, see external/yaml-cpp/LICENSE), so the build needs no network
+# access. Tag yaml-cpp-0.9.0 (commit 56e3bb55), without its tests and tools.
 set(YAML_CPP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(YAML_CPP_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
+set(YAML_CPP_INSTALL OFF CACHE BOOL "" FORCE)
 set(YAML_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
-set(YAML_CPP_DISABLE_WARNING_LOOKUP ON CACHE BOOL "" FORCE)
-FetchContent_Declare(yaml-cpp
-    GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
-    GIT_TAG        yaml-cpp-0.9.0
-    GIT_SHALLOW    TRUE
-)
-FetchContent_MakeAvailable(yaml-cpp)
+add_subdirectory(external/yaml-cpp EXCLUDE_FROM_ALL)
 
 # -------------------------------------------------------------------- DNest4
 # The nested sampling engine. Vendored under external/DNest4 (MIT licence,
