@@ -156,7 +156,11 @@ posterior summaries (amorphous fraction, the shape of the wide component,
 the noise parameters, the numbers of peaks). It takes hours, so it runs on
 demand only: "Run workflow" on the GitHub Actions tab (the reference version
 is an input, master by default), or the label `validate` on a pull request
-(the reference is the base of the pull request).
+(the reference is the base of the pull request; adding the label again
+restarts the comparison). Each sampler run stops after 5000 saves or
+210 minutes, whichever comes first (both are inputs of "Run workflow"), and
+what it saved by then is post-processed; the log of each run reports the
+number of saves and levels every 10 minutes.
 
 ### The legacy Makefile
 
