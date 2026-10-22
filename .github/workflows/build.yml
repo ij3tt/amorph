@@ -14,13 +14,20 @@ jobs:
   windows:
     name: Windows executable (mingw cross-compile)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
       - name: Install mingw-w64
         run: |
-          sudo apt-get update
-          sudo apt-get install -y g++-mingw-w64-x86-64 binutils-mingw-w64-x86-64
+          # The GitHub-hosted images already ship mingw-w64; only fall back to
+          # apt if the cross compiler is missing.
+          if ! command -v x86_64-w64-mingw32-g++ >/dev/null 2>&1; then
+            sudo apt-get update -q
+            sudo apt-get install -y --no-install-recommends \
+              g++-mingw-w64-x86-64 binutils-mingw-w64-x86-64
+          fi
+          x86_64-w64-mingw32-g++ --version
 
       - name: Configure
         run: >
