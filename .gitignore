@@ -6,6 +6,7 @@ src/sample_info.txt
 src/weights.txt
 src/sampler_state.txt
 src/__pycache__
+__pycache__/
 src/run_data.txt
 src/logfile
 src/log_prior_weights.txt
@@ -29,4 +30,7 @@ doc/ms.blg
 doc/ms.log
 doc/ms.pdf
 doc/references.bib
-doc/figures
+doc/figures/*
+!doc/figures/xrd_fit.tex
+!doc/figures/xrd_fit_body.tex
+demo/

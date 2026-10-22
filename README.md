@@ -135,3 +135,58 @@ the Linux build, and uploads both as artefacts.
 
 `src/Makefile` is the original build system and is still functional on Linux
 with a DNest4 checkout in `$DNEST4_PATH`. CMake is the recommended route.
+
+Drawing the fit figure with TikZ
+=================================
+
+The `showresults.py` script produces `posterior_sample.txt`, which holds the
+posterior samples of the model, of the amorphous (wide) component, of the
+crystalline (narrow) peaks and of the background. `src/export_pgf.py` turns
+those samples into tables that PGFPlots can read, and `doc/figures/xrd_fit.tex`
+draws the figure from them:
+
+```
+python showresults.py                     # in src/, writes posterior_sample.txt
+python export_pgf.py --data easy_data.txt --out ../doc/figures/pgf
+cd ../doc/figures && pdflatex xrd_fit.tex  # writes xrd_fit.pdf
+```
+
+or, all at once,
+
+```
+bash scripts/make_xrd_figure.sh easy_data.txt
+```
+
+The tables that are written into `doc/figures/pgf/` are
+
+| file | contents |
+| --- | --- |
+| `xrd_data.dat` | x and the measured intensity |
+| `xrd_mean.dat` | x and the posterior means of the model, the amorphous component, the crystalline peaks and the background |
+| `xrd_samples_model.dat` | x and a number of posterior sample curves of the model |
+| `xrd_samples_amorph.dat` | the same for the amorphous component |
+| `xrd_samples_xtal.dat` | the same for the crystalline peaks |
+| `xrd_samples.tex` | the `\addplot` commands for the faint sample curves |
+| `xrd_meta.tex` | LaTeX macros: axis limits, title, amorphous fraction |
+
+Useful options of `export_pgf.py`:
+
+* `--title` sets the title of the figure (it is LaTeX markup, by default the
+  chemical formula of the sample).
+* `--samples N` is the number of faint posterior sample curves per component
+  (`0` switches them off).
+* `--max-points N` limits the total number of points in the sample curves, so
+  that the figure fits in the memory of pdfTeX. Use `--max-points 0` together
+  with `lualatex` for the full resolution.
+
+To use the figure inside `doc/ms.tex` rather than as a standalone PDF, add
+`\usepackage{pgfplots}` to the preamble and
+
+```
+\def\xrddatadir{figures/pgf/}
+\input{figures/xrd_fit_body.tex}
+```
+
+`scripts/make_demo_posterior.py` generates a synthetic data set and a matching
+`posterior_sample.txt`, which is handy for trying the whole chain out without
+running the sampler first.

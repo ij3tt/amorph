@@ -1,0 +1,115 @@
+% ---------------------------------------------------------------------------
+% The "fit" figure, drawn with PGFPlots instead of matplotlib.
+%
+% This file is a fragment: it expects pgfplots to be loaded and it expects
+% the tables written by src/export_pgf.py to be in \xrddatadir (by default
+% "pgf/", relative to the directory holding this file).
+%
+%     \usepackage{pgfplots}
+%     \input{figures/xrd_fit_body.tex}
+%
+% The companion file xrd_fit.tex compiles this into a standalone PDF.
+% ---------------------------------------------------------------------------
+
+% Colours that match the original figure
+\definecolor{xrdgreen}{rgb}{0.0,0.62,0.0}
+\definecolor{xrdgold}{rgb}{0.75,0.58,0.12}
+
+% Styles of the different curves
+\pgfplotsset{
+    xrd sample/.style={line width=0.35pt, forget plot},
+    xrd model/.style={xrdgreen, line width=2.6pt, solid, forget plot},
+    xrd amorph/.style={blue, line width=2.2pt, dashed, forget plot},
+    xrd xtal/.style={red, line width=2.2pt, dashed, forget plot},
+    xrd bg/.style={xrdgold, line width=2.2pt, dashed, forget plot},
+    xrd data/.style={only marks, mark=o, mark size=1.7pt, forget plot,
+                     mark options={solid, black, line width=0.5pt},
+                     opacity=0.75},
+}
+
+% Folder holding the tables. Define \xrddatadir before \input if they are
+% somewhere else (for example "figures/pgf/" when used inside ms.tex).
+\ifx\xrddatadir\undefined
+  \def\xrddatadir{pgf/}
+\fi
+\input{\xrddatadir xrd_meta.tex}
+
+\begin{tikzpicture}
+\begin{axis}[
+    width=17.0cm,
+    height=11.2cm,
+    xmin=\xrdxmin, xmax=\xrdxmax,
+    ymin=\xrdymin, ymax=\xrdymax,
+    xlabel={$2\theta$, $^\circ$},
+    ylabel={Intensity, arb. un.},
+    title={\xrdtitle},
+    title style={font=\LARGE\bfseries, yshift=8pt},
+    label style={font=\large},
+    tick label style={font=\large},
+    tick align=outside,
+    tick style={black, line width=0.6pt},
+    axis line style={black, line width=0.9pt},
+    grid=both,
+    major grid style={dashed, gray!55, line width=0.4pt},
+    minor tick num=0,
+    legend style={
+        at={(0.995,0.985)},
+        anchor=north east,
+        draw=none,
+        fill=none,
+        font=\large,
+        row sep=-2pt,
+        /tikz/every even column/.append style={column sep=6pt},
+    },
+    legend cell align=left,
+    clip=true,
+]
+
+% --- legend ------------------------------------------------------------------
+% The entries are added by hand so that they appear in the same order as in
+% the original figure (the experimental data is drawn last, on top of the
+% curves, but it is the first entry of the legend).
+\addlegendimage{only marks, mark=o, mark size=1.7pt,
+                mark options={solid, black, line width=0.5pt}}
+\addlegendentry{Experimental}
+
+\addlegendimage{xrdgreen, line width=2.6pt, solid}
+\addlegendentry{Model (mean)}
+
+\addlegendimage{blue, line width=2.2pt, dashed}
+\addlegendentry{Amorphous (mean)}
+
+\addlegendimage{red, line width=2.2pt, dashed}
+\addlegendentry{Crystalline peaks (mean)}
+
+\addlegendimage{xrdgold, line width=2.2pt, dashed}
+\addlegendentry{Background (mean)}
+
+% --- pale posterior samples -------------------------------------------------
+\ifnum\xrdnsamples>0
+  \input{\xrddatadir xrd_samples.tex}
+\fi
+
+% --- posterior means --------------------------------------------------------
+\addplot[xrd model]
+    table[x index=0, y index=1] {\xrddatadir xrd_mean.dat};
+
+\addplot[xrd amorph]
+    table[x index=0, y index=2] {\xrddatadir xrd_mean.dat};
+
+\addplot[xrd xtal]
+    table[x index=0, y index=3] {\xrddatadir xrd_mean.dat};
+
+\addplot[xrd bg]
+    table[x index=0, y index=4] {\xrddatadir xrd_mean.dat};
+
+% --- experimental data ------------------------------------------------------
+\addplot[xrd data]
+    table[x index=0, y index=1] {\xrddatadir xrd_data.dat};
+
+% --- annotation -------------------------------------------------------------
+\node[anchor=north west, font=\Large] at (rel axis cs:0.025,0.975)
+    {Amorphous = \xrdamorph};
+
+\end{axis}
+\end{tikzpicture}

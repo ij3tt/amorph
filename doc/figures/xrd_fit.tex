@@ -1,0 +1,18 @@
+% ---------------------------------------------------------------------------
+% Standalone version of the "fit" figure. Compile from this folder:
+%
+%     pdflatex xrd_fit.tex
+%
+% The tables in pgf/ are written by src/export_pgf.py.
+% ---------------------------------------------------------------------------
+\documentclass[tikz,border=6pt]{standalone}
+
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+
+% A Times-like font, as used for the original figure
+\usepackage{newtxtext,newtxmath}
+
+\begin{document}
+\input{xrd_fit_body.tex}
+\end{document}
