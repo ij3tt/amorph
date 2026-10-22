@@ -18,3 +18,6 @@ Makefile text eol=lf
 *.pdf binary
 *.tif binary
 *.jpg binary
+
+# ...but CMake build files only share the .txt extension: diff them as text.
+CMakeLists.txt text eol=lf diff merge
