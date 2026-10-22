@@ -1,0 +1,87 @@
+name: Build
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    name: Windows executable (mingw cross-compile)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install mingw-w64
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-mingw-w64-x86-64 binutils-mingw-w64-x86-64
+
+      - name: Configure
+        run: >
+          cmake -B build-win -S . -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_SYSTEM_NAME=Windows
+          -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++
+          -DCMAKE_RC_COMPILER=x86_64-w64-mingw32-windres
+
+      - name: Build
+        run: cmake --build build-win -j 2
+
+      - name: Collect the distribution
+        run: |
+          mkdir -p dist
+          cp build-win/AMORPH.exe dist/
+          cp src/OPTIONS src/OPTIONS_AGGRESSIVE src/config.yaml dist/
+          cp src/showresults.py src/display.py src/dnest_functions.py dist/
+          cp src/easy_data.txt dist/
+          ls -l dist
+
+      - name: Check the executable
+        run: file dist/AMORPH.exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AMORPH-windows
+          path: dist/
+          if-no-files-found: error
+
+  linux:
+    name: Linux build + smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++ make
+          python3 -m pip install --upgrade pip
+          python3 -m pip install numpy matplotlib pandas pyyaml
+
+      - name: Configure
+        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build -j 2
+
+      - name: Smoke test
+        run: bash scripts/smoke_test.sh build/AMORPH build/smoke
+
+      - name: Collect the distribution
+        run: |
+          mkdir -p dist
+          cp build/AMORPH dist/
+          cp src/OPTIONS src/OPTIONS_AGGRESSIVE src/config.yaml dist/
+          cp src/showresults.py src/display.py src/dnest_functions.py dist/
+          cp src/easy_data.txt dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AMORPH-linux
+          path: dist/
+          if-no-files-found: error

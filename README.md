@@ -69,8 +69,8 @@ Background positions are currently optimized for the use of CuKa x-ray sources,
 with linear fits between 10–40° 2theta as described in the manuscript. For
 other X-ray sources, it may be necessary to adjust these fixed points to
 provide the best fit to the diffraction patterns. This may be modified by
-changing the values in control_points.in (which can be opened in any text
-editor). For some analyses, typically when more data points are analysed
+changing the values of `control_points` in `config.yaml` (which can be opened
+in any text editor). For some analyses, typically when more data points are analysed
 (5–50 degrees 2theta) or for highly crystalline materials, the numerical
 settings of the DNest4 sampler are not optimal for obtaining useful results,
 and need to be made more conservative (making the run slower).
@@ -87,4 +87,51 @@ Therefore we only recommend changing one of these two parameters at a time.
 Using the source code
 =====================
 If you don't want to use `AMORPH.exe` and would rather compile AMORPH
-yourself, you'll need the dependencies yaml-cpp, boost, and DNest4.
+yourself, you'll need a C++14 compiler, CMake 3.16+, and network access
+(the yaml-cpp dependency is downloaded automatically by CMake).
+
+DNest4 is vendored in `external/DNest4` (MIT licence, see
+`external/DNest4/LICENSE`), so it does not have to be installed separately.
+
+### Linux / macOS
+
+```bash
+cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
+./build/AMORPH
+```
+
+### Windows (cross-compiled from Linux)
+
+```bash
+sudo apt-get install g++-mingw-w64-x86-64
+cmake -B build-win -S . -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_SYSTEM_NAME=Windows \
+      -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++
+cmake --build build-win -j
+```
+
+The resulting `build-win/AMORPH.exe` is statically linked and needs no
+additional DLLs. A native Windows build (MSYS2 / MinGW-w64) works too - just
+drop the `-DCMAKE_SYSTEM_NAME=Windows` and compiler overrides.
+
+### Smoke test
+
+`scripts/smoke_test.sh` runs the sampler on the bundled example dataset with a
+deliberately tiny configuration and checks that it produces the expected
+output files:
+
+```bash
+bash scripts/smoke_test.sh build/AMORPH build/smoke
+```
+
+### Continuous integration
+
+`.github/workflows/build.yml` builds the Windows executable (cross-compiled
+with mingw-w64) and the Linux executable on every push, runs the smoke test on
+the Linux build, and uploads both as artefacts.
+
+### The legacy Makefile
+
+`src/Makefile` is the original build system and is still functional on Linux
+with a DNest4 checkout in `$DNEST4_PATH`. CMake is the recommended route.

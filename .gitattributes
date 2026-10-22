@@ -1,0 +1,20 @@
+# Normalise line endings: keep the repository content stable across platforms.
+* text=auto
+
+# Shell scripts and CI definitions must stay LF-only to run on Unix runners.
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+Makefile text eol=lf
+
+# Sources
+*.cpp text eol=lf
+*.h text eol=lf
+*.hpp text eol=lf
+*.py text eol=lf
+
+# Data and documents are binary-ish: leave them alone.
+*.txt binary
+*.pdf binary
+*.tif binary
+*.jpg binary

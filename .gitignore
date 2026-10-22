@@ -19,6 +19,10 @@ src/*.a
 src/macroquantities.csv
 runs/
 Amorph.pdf
+build/
+build-win/
+dist/
+*.exe
 doc/ms.aux
 doc/ms.bbl
 doc/ms.blg
