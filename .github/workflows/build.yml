@@ -1,5 +1,8 @@
 name: Build
 
+# The build steps live in scripts/ci/ and are shared with GitVerse CI
+# (.gitverse/workflows/build.yml).
+
 on:
   push:
     branches: [master]
@@ -18,77 +21,44 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install mingw-w64
-        run: |
-          # The GitHub-hosted images already ship mingw-w64; only fall back to
-          # apt if the cross compiler is missing.
-          if ! command -v x86_64-w64-mingw32-g++ >/dev/null 2>&1; then
-            sudo apt-get update -q
-            sudo apt-get install -y --no-install-recommends \
-              g++-mingw-w64-x86-64 binutils-mingw-w64-x86-64
-          fi
-          x86_64-w64-mingw32-g++ --version
-
-      - name: Configure
-        run: >
-          cmake -B build-win -S . -DCMAKE_BUILD_TYPE=Release
-          -DCMAKE_SYSTEM_NAME=Windows
-          -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++
-          -DCMAKE_RC_COMPILER=x86_64-w64-mingw32-windres
-
       - name: Build
-        run: cmake --build build-win -j 2
-
-      - name: Collect the distribution
-        run: |
-          mkdir -p dist
-          cp build-win/AMORPH.exe dist/
-          cp src/OPTIONS src/OPTIONS_AGGRESSIVE src/config.yaml dist/
-          cp src/showresults.py src/display.py src/dnest_functions.py dist/
-          cp src/easy_data.txt dist/
-          ls -l dist
-
-      - name: Check the executable
-        run: file dist/AMORPH.exe
+        run: bash scripts/ci/windows_cross.sh
 
       - uses: actions/upload-artifact@v4
         with:
           name: AMORPH-windows
-          path: dist/
+          path: dist/windows/
           if-no-files-found: error
 
-  linux:
-    name: Linux build + smoke test
-    runs-on: ubuntu-latest
+  windows-run:
+    name: Windows executable smoke test
+    needs: windows
+    runs-on: windows-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake g++ make
-          python3 -m pip install --upgrade pip
-          python3 -m pip install numpy matplotlib pandas pyyaml
-
-      - name: Configure
-        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
-
-      - name: Build
-        run: cmake --build build -j 2
+      - uses: actions/download-artifact@v4
+        with:
+          name: AMORPH-windows
+          path: dist/windows
 
       - name: Smoke test
-        run: bash scripts/smoke_test.sh build/AMORPH build/smoke
+        shell: bash
+        run: bash scripts/smoke_test.sh dist/windows/AMORPH.exe build/smoke
 
-      - name: Collect the distribution
-        run: |
-          mkdir -p dist
-          cp build/AMORPH dist/
-          cp src/OPTIONS src/OPTIONS_AGGRESSIVE src/config.yaml dist/
-          cp src/showresults.py src/display.py src/dnest_functions.py dist/
-          cp src/easy_data.txt dist/
+  linux:
+    name: Linux build, tests and smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and test
+        run: bash scripts/ci/linux.sh
 
       - uses: actions/upload-artifact@v4
         with:
           name: AMORPH-linux
-          path: dist/
+          path: dist/linux/
           if-no-files-found: error

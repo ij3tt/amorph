@@ -87,11 +87,12 @@ Therefore we only recommend changing one of these two parameters at a time.
 Using the source code
 =====================
 If you don't want to use `AMORPH.exe` and would rather compile AMORPH
-yourself, you'll need a C++14 compiler, CMake 3.16+, and network access
-(the yaml-cpp dependency is downloaded automatically by CMake).
+yourself, you'll need a C++14 compiler and CMake 3.16+.
 
-DNest4 is vendored in `external/DNest4` (MIT licence, see
-`external/DNest4/LICENSE`), so it does not have to be installed separately.
+Both dependencies are vendored, so nothing has to be installed separately
+and the build needs no network access: DNest4 in `external/DNest4` and
+yaml-cpp in `external/yaml-cpp` (both MIT licence, see their `LICENSE`
+files).
 
 ### Linux / macOS
 
@@ -127,9 +128,17 @@ bash scripts/smoke_test.sh build/AMORPH build/smoke
 
 ### Continuous integration
 
-`.github/workflows/build.yml` builds the Windows executable (cross-compiled
-with mingw-w64) and the Linux executable on every push, runs the smoke test on
-the Linux build, and uploads both as artefacts.
+The repository is built on two CI services, which run the same scripts from
+`scripts/ci/`:
+
+* GitHub Actions (`.github/workflows/build.yml`), on pushes to master and on
+  pull requests: builds the Linux executable and runs the tests and the smoke
+  test on it, cross-compiles `AMORPH.exe` with mingw-w64 and runs the smoke
+  test on it on a Windows runner. Both executables are uploaded as artefacts.
+* GitVerse CI (`.gitverse/workflows/build.yml`), on every push: the same
+  Linux build and tests, and the cross-compiled `AMORPH.exe` as an artefact
+  (kept for 7 days). GitVerse has no Windows runners, so the executable is
+  not run there.
 
 ### The legacy Makefile
 
