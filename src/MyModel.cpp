@@ -1,6 +1,8 @@
 #include "MyModel.h"
+#include "Background.h"
 #include "Config.h"
 #include "DNest4/code/DNest4.h"
+#include "Likelihood.h"
 #include "Lookup.h"
 #include <cmath>
 #include <sstream>
@@ -140,37 +142,14 @@ double MyModel::perturb(DNest4::RNG& rng)
 
 void MyModel::compute_bg()
 {
-    // Value at left and right end of interval,
-    // fractional position within interval.
-    double x1, x2, val1, val2, lambda;
+    // Background level at the knots
+    std::vector<double> y_knots(n_knots.size());
+    for(size_t i=0; i<n_knots.size(); ++i)
+        y_knots[i] = background * exp(n_knots[i]);
 
+    const auto& data_x = data.get_x();
     for(size_t i=0; i<bg.size(); ++i)
-    {
-        if(data.get_x()[i] < x_knots[1])
-        {
-            x1 = x_knots[0];
-            x2 = x_knots[1];
-            val1 = background * exp(n_knots[0]);
-            val2 = background * exp(n_knots[1]);
-        }
-        else if(data.get_x()[i] < x_knots[2])
-        {
-            x1 = x_knots[1];
-            x2 = x_knots[2];
-            val1 = background * exp(n_knots[1]);
-            val2 = background * exp(n_knots[2]);
-        }
-        else
-        {
-            x1 = x_knots[2];
-            x2 = x_knots[3];
-            val1 = background * exp(n_knots[2]);
-            val2 = background * exp(n_knots[3]);
-        }
-
-        lambda = (data.get_x()[i] - x1) / (x2 - x1);
-        bg[i] = (1.0 - lambda)*val1 + lambda*val2;
-    }
+        bg[i] = piecewise_linear(x_knots, y_knots, data_x[i]);
 }
 
 
@@ -246,11 +225,8 @@ double MyModel::log_likelihood() const
     // References to the data vector
     const auto& data_y = data.get_y();
 
-    // pi
-    static constexpr double pi = 3.141592653589793;
-
     // Normalising constant of the t distribution
-    double C = lgamma(0.5*(nu + 1.0)) - log(0.5*nu) - 0.5*log(pi*nu);
+    double C = student_t_log_norm(nu);
 
     // T likelihood
     double model, resid, var;
@@ -260,8 +236,7 @@ double MyModel::log_likelihood() const
         resid = data_y[i] - model;
         var = sigma0*sigma0 + sigma1*model;
 
-        logL += C - 0.5*log(var)
-                  - 0.5*(nu + 1.0)*log(1.0 + resid*resid/var);
+        logL += C + student_t_log_kernel(resid, var, nu);
     }
 
     if(std::isnan(logL) || std::isinf(logL))

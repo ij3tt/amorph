@@ -72,6 +72,7 @@ class MyModel
     public:
         static void load_data(const char* filename);
         static void set_control_points(const std::tuple<double, double>& cps);
+        static const std::vector<double>& get_x_knots() { return x_knots; }
 };
 
 } // namespace AMORPH
