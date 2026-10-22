@@ -9,6 +9,8 @@ name: Validate
 #     base of the pull request).
 # Both versions are post-processed with the scripts of the tested version,
 # so the comparison shows the differences of the sampler and the model.
+# Each sampler run stops after a number of saves or a time budget, whichever
+# comes first, and what it saved by then is post-processed.
 
 on:
   workflow_dispatch:
@@ -17,16 +19,26 @@ on:
         description: Reference version (branch, tag or commit)
         default: master
       saves:
-        description: Number of saved samples per run
+        description: Maximum number of saved samples per run
         default: "5000"
+      minutes:
+        description: Time budget of each sampler run, in minutes (at most 270)
+        default: "210"
   pull_request:
     types: [labeled]
+
+# Adding the label again restarts the comparison. The label name is part of
+# the group, so that other labels do not cancel a running comparison.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event.label.name }}
+  cancel-in-progress: true
 
 jobs:
   run:
     name: ${{ matrix.version }} / ${{ matrix.dataset.file }}
     if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'validate'
     runs-on: ubuntu-latest
+    # The sampler time budget plus the build and the post-processing
     timeout-minutes: 300
     strategy:
       fail-fast: false
@@ -39,8 +51,10 @@ jobs:
           - {id: glass90, file: 90%_glass_basalt_Emperyon.txt}
     env:
       REFERENCE: ${{ inputs.reference || github.event.pull_request.base.sha }}
-      TESTED: ${{ github.event.pull_request.head.sha || github.sha }}
+      # For a pull request, the merge of it into its base: what would land
+      TESTED: ${{ github.sha }}
       SAVES: ${{ inputs.saves || '5000' }}
+      MINUTES: ${{ inputs.minutes || '210' }}
       DATA_FILE: ${{ matrix.dataset.file }}
     steps:
       - name: Check out the tested version (for the scripts)
@@ -55,7 +69,9 @@ jobs:
           path: under-test
 
       - name: Run AMORPH and summarise the posterior
-        run: bash scripts/ci/validate_run.sh under-test "${DATA_FILE}" "${SAVES}" results
+        run: >
+          bash scripts/ci/validate_run.sh under-test "${DATA_FILE}"
+          "${SAVES}" "${MINUTES}" results
 
       - uses: actions/upload-artifact@v4
         if: always()
