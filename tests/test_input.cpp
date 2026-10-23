@@ -225,7 +225,9 @@ static void test_bundled_datasets(const std::string& src)
         {"0%glass_rhyolite_Emperyon.txt", 1731, 5.01313028, 49.99313028},
         {"50% glass .02step3secdwell.txt", 1501, 10.0, 40.0},
         {"90%_glass_basalt_Emperyon.txt", 1731, 5.01313028, 49.99313028},
-        {"easy_data.txt", 1001, 0.0, 50.0}};
+        {"easy_data.txt", 1001, 0.0, 50.0},
+        {"G30RAW_amorph.txt", 1001, 26.0, 46.0},
+        {"N3RAW_amorph.txt", 1001, 26.0, 46.0}};
 
     for(const Dataset& d: datasets)
     {
@@ -511,6 +513,79 @@ static void test_config_errors()
                        "must be less than", "left_edge = right_edge");
 }
 
+// The optional settings: narrow_peak_nu and seed, added at the end of the
+// valid configuration (line 12)
+static void test_config_optional()
+{
+    write_file(data_file, data_lines(20));
+    write_file(options_file, "# DNest4 options\n");
+
+    const std::string valid = config_with("num_threads", "8");
+    write_file(config_file, valid);
+    try
+    {
+        Config c;
+        c.load(config_file.c_str());
+        check(c.get_narrow_peak_nu_min() == 0.1
+              && c.get_narrow_peak_nu_max() == 100.0,
+              "narrow_peak_nu is [0.1, 100] by default");
+        check(c.get_seed().empty() && c.get_argc() == 7,
+              "no seed by default");
+    }
+    catch(const std::exception& e)
+    {
+        check(false, std::string("valid config without the optional "
+                                 "settings: ") + e.what());
+    }
+
+    write_file(config_file, valid + "    narrow_peak_nu: [1.0, 50.0]\n"
+                            + "seed: 42\n");
+    try
+    {
+        Config c;
+        c.load(config_file.c_str());
+        check(c.get_narrow_peak_nu_min() == 1.0
+              && c.get_narrow_peak_nu_max() == 50.0,
+              "narrow_peak_nu: [1.0, 50.0] is read");
+        char** argv = c.get_argv();
+        check(c.get_argc() == 9 && std::string(argv[7]) == "-s"
+              && std::string(argv[8]) == "42" && argv[9] == nullptr,
+              "seed: 42 becomes -s 42 for DNest4");
+    }
+    catch(const std::exception& e)
+    {
+        check(false, std::string("valid config with narrow_peak_nu and "
+                                 "seed: ") + e.what());
+    }
+
+    const std::string& f = config_file;
+    const std::string nu = "    narrow_peak_nu: ";
+    check_config_error(valid + nu + "1.0\n",
+                       f + ", line 12: 'inference_assumptions.narrow_peak_nu'"
+                       " must be a list of two numbers",
+                       "narrow_peak_nu is a number");
+    check_config_error(valid + nu + "[1.0, many]\n",
+                       "the second of 'inference_assumptions.narrow_peak_nu'"
+                       " must be a number, got 'many'",
+                       "narrow_peak_nu holds text");
+    check_config_error(valid + nu + "[50.0, 1.0]\n",
+                       f + ", line 12: 'inference_assumptions.narrow_peak_nu'"
+                       " must be in increasing order, got '50.0' and '1.0'",
+                       "narrow_peak_nu in decreasing order");
+    check_config_error(valid + nu + "[0.05, 100.0]\n",
+                       "must lie between 0.1 and 100", "narrow_peak_nu < 0.1");
+    check_config_error(valid + nu + "[1.0, 200.0]\n",
+                       "must lie between 0.1 and 100", "narrow_peak_nu > 100");
+
+    check_config_error(valid + "seed: -1\n",
+                       f + ", line 12: 'seed' must be a whole number from 0 "
+                       "to 4294967295, got '-1'", "negative seed");
+    check_config_error(valid + "seed: abc\n", "'seed' must be a whole number",
+                       "seed is text");
+    check_config_error(valid + "seed: 4294967296\n",
+                       "'seed' must be a whole number", "seed too large");
+}
+
 int main(int argc, char** argv)
 {
     test_data_errors();
@@ -523,6 +598,7 @@ int main(int argc, char** argv)
     test_control_points_warning();
     test_config_valid();
     test_config_errors();
+    test_config_optional();
 
     for(const std::string& filename: {data_file, config_file, options_file})
         std::remove(filename.c_str());

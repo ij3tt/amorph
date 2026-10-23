@@ -32,8 +32,10 @@ To configure a run, edit the file `config.yaml` to specify all the details of
 the data file and other things you might want to tweak.
 
 Four test datasets are stored in the repository
-(`0%glass_rhyolite_Emperyon.txt`, `50% glass.02step3secdwell.txt`,
-`90%_glass_basalt_Emperyon.txt`, and `easy_data.txt`).
+(`0%glass_rhyolite_Emperyon.txt`, `50% glass .02step3secdwell.txt`,
+`90%_glass_basalt_Emperyon.txt`, and `easy_data.txt`), and two more
+samples, `G30RAW_amorph.txt` and `N3RAW_amorph.txt` (26–46°), that show
+the ambiguity described in "The shape of the crystalline peaks" below.
 The program is set to run until
 10,000 saved parameter sets have been generated. Outputs may be viewed at any
 point, however, closing the program before reaching  10,000 will reduce the
@@ -120,6 +122,34 @@ in any text editor. Parameter values on line 4 (new level interval) and line 8
 (Backtracking scale length) can each independently be doubled. Note, while this
 will improve model outputs, it significantly lengthens the time of analysis.
 Therefore we only recommend changing one of these two parameters at a time.
+
+The shape of the crystalline peaks
+==================================
+
+The narrow (crystalline) peaks are Student-t profiles with a shape parameter
+ν shared by all of them. Its prior is log-uniform between the two values of
+`narrow_peak_nu` in `config.yaml`, by default `[0.1, 100.0]` as in the paper
+(the widest range allowed). A Student-t profile is a Pearson VII profile with
+exponent m = (ν + 1)/2: ν = 1 is a Lorentzian, a large ν approaches a
+Gaussian, and ν < 1 has tails heavier than a Lorentzian.
+
+Near ν = 0.1 a "narrow" peak puts most of its area into wide tails, and a few
+hundred of them can take the place of the amorphous hump. For some samples
+the data cannot tell the two descriptions apart, and the posterior of the
+amorphous fraction then has a second mode at or near 0. In a run on
+`src/N3RAW_amorph.txt` (at most 500 narrow and 100 wide peaks, ν in
+[0.1, 100]) about 12% of the posterior weight had a fraction below 0.2, with
+hundreds of narrow peaks at ν of about 0.14 to 0.19 and a fit as good as that
+of the main mode. In the same run on `src/G30RAW_amorph.txt` this mode had no
+weight.
+
+A narrower range, such as `narrow_peak_nu: [1.0, 100.0]` (no profile with
+tails heavier than a Lorentzian), changes the model of the paper: report it
+along with the results. `.github/workflows/experiment.yml` compares such
+settings on these two samples.
+
+`config.yaml` may also set `seed`, a whole number from 0 to 4294967295, for
+the random number generator of the sampler; without it the time is used.
 
 
 Using the source code
@@ -213,6 +243,33 @@ restarts the comparison). Each sampler run stops after 5000 saves or
 210 minutes, whichever comes first (both are inputs of "Run workflow"), and
 what it saved by then is post-processed; the log of each run reports the
 number of saves and levels every 10 minutes.
+
+`.github/workflows/experiment.yml` runs the two ambiguous samples,
+`src/N3RAW_amorph.txt` and `src/G30RAW_amorph.txt`, with the settings listed
+in `scripts/ci/experiment_settings.json` (the maximum numbers of peaks,
+`narrow_peak_nu` and `control_points`), each with two seeds, all in
+parallel, and writes a table of how much posterior weight has an amorphous
+fraction of 0 or below 0.2. It is started the same way: "Run workflow", or
+the label `experiment` on a pull request.
+
+### Diagnosing the posterior
+
+`scripts/diagnose_posterior.py` tells whether the amorphous fraction of a run
+is well determined. Run it on the folder of a finished run, after
+`showresults.py`:
+
+```bash
+python scripts/diagnose_posterior.py src --data src/easy_data.txt --json diagnosis.json --table particles.csv.gz
+```
+
+It prints the posterior weight with a fraction of 0, below 0.2 and below
+0.45; for each of these bands the weighted medians of the log likelihood, the
+number of narrow peaks and their shape ν, and the misfit; and the weight of
+particles with nearly the maximum number of narrow peaks. A band with real
+weight at a low fraction, with hundreds of narrow peaks at a small ν and the
+same likelihood as the main mode, means that the data do not determine the
+fraction. `--table` writes one row per saved particle (a few hundred
+kilobytes, instead of the hundreds of megabytes of `sample.txt`).
 
 ### The legacy Makefile
 

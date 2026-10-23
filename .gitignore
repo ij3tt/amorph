@@ -35,3 +35,4 @@ doc/figures/*
 !doc/figures/xrd_fit_body.tex
 demo/
 .pytest_cache/
+src/pgf/

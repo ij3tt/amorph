@@ -47,8 +47,10 @@ sample_info.txt	# file for information about the samples
 levels.txt	# file for information about the levels
 EOF
 
-# Point the config at the smoke-test options and keep the run small.
+# Point the config at the example data and the smoke-test options, whatever
+# src/config.yaml names, and keep the run small.
 sed -i \
+    -e 's/^data_file: .*/data_file: "easy_data.txt"/' \
     -e 's/^num_threads: .*/num_threads: 2/' \
     -e 's/^dnest4_options_file: .*/dnest4_options_file: "OPTIONS_SMOKE"/' \
     -e 's/^    max_num_narrow_peaks: .*/    max_num_narrow_peaks: 20/' \

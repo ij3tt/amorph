@@ -44,7 +44,10 @@ void MyModel::from_prior(DNest4::RNG& rng)
     narrow_peaks.from_prior(rng);
     wide_peaks.from_prior(rng);
 
-    peak_shape = log(0.1) + log(1000.0)*rng.rand();
+    // log(nu) of the narrow peaks, uniform between the bounds in the config
+    double shape_min = log(Config::global.get_narrow_peak_nu_min());
+    double shape_max = log(Config::global.get_narrow_peak_nu_max());
+    peak_shape = shape_min + (shape_max - shape_min)*rng.rand();
 
     compute_bg();
     compute_narrow();
@@ -112,8 +115,10 @@ double MyModel::perturb(DNest4::RNG& rng)
         }
         else if(which == 2)
         {
-            peak_shape += log(1000.0)*rng.randh();
-            DNest4::wrap(peak_shape, log(0.1), log(100.0));
+            double shape_min = log(Config::global.get_narrow_peak_nu_min());
+            double shape_max = log(Config::global.get_narrow_peak_nu_max());
+            peak_shape += (shape_max - shape_min)*rng.randh();
+            DNest4::wrap(peak_shape, shape_min, shape_max);
 
             compute_narrow();
         }

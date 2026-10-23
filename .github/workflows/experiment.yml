@@ -1,0 +1,114 @@
+name: Experiment
+
+# Runs the samples whose amorphous fraction can be ambiguous
+# (src/N3RAW_amorph.txt, src/G30RAW_amorph.txt; see "The shape of the
+# crystalline peaks" in README.md) with the settings listed in
+# scripts/ci/experiment_settings.json: for each setting the maximum numbers
+# of narrow and wide peaks, the range of nu of the narrow peaks and the
+# background control points. Each setting runs on each dataset of that file
+# for each replicate, with its own seed, and scripts/diagnose_posterior.py
+# summarises every run. The runs take hours, so this runs on demand only:
+# "Run workflow" on the Actions tab, or the label "experiment" on a pull
+# request.
+
+on:
+  workflow_dispatch:
+    inputs:
+      saves:
+        description: Maximum number of saved samples per run
+        default: "10000"
+      minutes:
+        description: Time budget of each sampler run, in minutes (at most 270)
+        default: "240"
+  pull_request:
+    types: [labeled]
+
+# Adding the label again restarts the experiment; other labels do not cancel it
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event.label.name }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    name: Settings
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'experiment'
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.read.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read scripts/ci/experiment_settings.json
+        id: read
+        run: |
+          jq . scripts/ci/experiment_settings.json
+          echo "matrix=$(jq -c . scripts/ci/experiment_settings.json)" \
+              >> "${GITHUB_OUTPUT}"
+
+  run:
+    name: ${{ matrix.setting.id }} / ${{ matrix.dataset }} / seed ${{ matrix.replicate }}
+    needs: plan
+    runs-on: ubuntu-latest
+    # The sampler time budget plus the build and the post-processing
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    env:
+      SAVES: ${{ inputs.saves || '10000' }}
+      MINUTES: ${{ inputs.minutes || '240' }}
+      DATA_FILE: ${{ matrix.dataset }}
+      SETTING: ${{ matrix.setting.id }}
+      NARROW: ${{ matrix.setting.narrow }}
+      WIDE: ${{ matrix.setting.wide }}
+      NU: ${{ matrix.setting.nu }}
+      CONTROL: ${{ matrix.setting.control_points }}
+      # Different for each replicate and each run of the workflow
+      SEED: ${{ github.run_number }}0${{ matrix.replicate }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run AMORPH and diagnose the posterior
+        run: |
+          bash scripts/ci/validate_run.sh . "${DATA_FILE}" "${SAVES}" \
+              "${MINUTES}" results \
+              "max_num_narrow_peaks=${NARROW}" "max_num_wide_peaks=${WIDE}" \
+              "narrow_peak_nu=${NU}" "control_points=${CONTROL}" \
+              "seed=${SEED}"
+          build/venv/bin/python scripts/diagnose_posterior.py build/run \
+              --data "build/run/${DATA_FILE}" \
+              --json results/diagnosis.json \
+              --table results/particles.csv.gz
+          printf '{"setting": "%s", "data": "%s", "seed": %s, "max_num_narrow_peaks": %s, "max_num_wide_peaks": %s, "narrow_peak_nu": "%s", "control_points": "%s"}\n' \
+              "${SETTING}" "${DATA_FILE}" "${SEED}" "${NARROW}" "${WIDE}" \
+              "${NU}" "${CONTROL}" > results/setting.json
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: experiment-${{ matrix.setting.id }}-${{ matrix.dataset }}-${{ matrix.replicate }}
+          path: results/
+          if-no-files-found: ignore
+
+  compare:
+    name: Compare
+    needs: run
+    if: always() && (github.event_name == 'workflow_dispatch' || github.event.label.name == 'experiment')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: experiment-*
+          path: runs
+
+      - name: Write the comparison
+        run: |
+          python3 scripts/ci/compare_experiment.py runs > experiment.md
+          cat experiment.md >> "${GITHUB_STEP_SUMMARY}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: experiment-summary
+          path: experiment.md
