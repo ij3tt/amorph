@@ -12,16 +12,14 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 . "${REPO_ROOT}/scripts/ci/common.sh"
 cd "${REPO_ROOT}"
 
+# The POSIX thread model: older mingw-w64 releases have no std::thread in the
+# win32 one. Installing only this variant (not g++-mingw-w64-x86-64, which
+# pulls in both) halves the download on runners without mingw-w64.
 require cmake:cmake make:make file:file \
-    x86_64-w64-mingw32-g++:g++-mingw-w64-x86-64 \
+    x86_64-w64-mingw32-g++-posix:g++-mingw-w64-x86-64-posix \
     x86_64-w64-mingw32-objdump:binutils-mingw-w64-x86-64
 
-# Prefer the POSIX thread model: older mingw-w64 releases have no std::thread
-# in the win32 one.
-CXX=x86_64-w64-mingw32-g++
-if command -v x86_64-w64-mingw32-g++-posix >/dev/null 2>&1; then
-    CXX=x86_64-w64-mingw32-g++-posix
-fi
+CXX=x86_64-w64-mingw32-g++-posix
 "${CXX}" --version | head -n 1
 
 cmake -B build-win -S . -DCMAKE_BUILD_TYPE=Release \
@@ -45,6 +43,7 @@ fi
 mkdir -p dist/windows
 cp build-win/AMORPH.exe dist/windows/
 cp src/OPTIONS src/OPTIONS_AGGRESSIVE src/config.yaml dist/windows/
-cp src/showresults.py src/display.py src/dnest_functions.py dist/windows/
+cp src/showresults.py src/display.py src/dnest_functions.py \
+   src/amorph_stats.py dist/windows/
 cp src/easy_data.txt dist/windows/
 ls -l dist/windows

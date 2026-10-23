@@ -75,7 +75,8 @@ if command -v python3 >/dev/null 2>&1; then
     if python3 -c "import numpy, matplotlib, pandas, yaml" >/dev/null 2>&1; then
         echo "smoke_test: running the Python post-processing..."
         cp "${REPO_ROOT}/src/showresults.py" "${REPO_ROOT}/src/display.py" \
-           "${REPO_ROOT}/src/dnest_functions.py" "${WORK}/"
+           "${REPO_ROOT}/src/dnest_functions.py" \
+           "${REPO_ROOT}/src/amorph_stats.py" "${WORK}/"
         ( cd "${WORK}" && MPLBACKEND=Agg python3 showresults.py > postprocess.log 2>&1 ) \
             || { echo "smoke_test: FAILED - post-processing crashed" >&2; \
                  tail -n 40 "${WORK}/postprocess.log" >&2; exit 1; }

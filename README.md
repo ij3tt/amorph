@@ -126,6 +126,16 @@ output files:
 bash scripts/smoke_test.sh build/AMORPH build/smoke
 ```
 
+### Tests of the Python post-processing
+
+`tests/test_postprocess.py` checks `amorph_stats.py`, `display.py` and
+`export_pgf.py` on a synthetic run made by `scripts/make_demo_posterior.py`
+(it needs numpy, matplotlib, pandas, pyyaml and pytest):
+
+```bash
+python -m pytest tests
+```
+
 ### Continuous integration
 
 The repository is built on two CI services, which run the same scripts from

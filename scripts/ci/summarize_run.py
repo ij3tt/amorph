@@ -20,6 +20,7 @@ import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "..", "src"))
+import amorph_stats
 import dnest_functions as dn4
 
 
@@ -118,21 +119,9 @@ def main():
 
     wide = curve("wide[0]")
     narrow = curve("narrow[0]")
-    wide_integral = wide.sum(axis=1)
-    narrow_integral = narrow.sum(axis=1)
-
-    # A sample without a wide component is 0% amorphous, not missing
-    total = wide_integral + narrow_integral
-    fraction = np.full(total.shape, np.nan)
-    fraction[total > 0.0] = wide_integral[total > 0.0] / total[total > 0.0]
-
-    # Centre of mass and half-width of the wide component, where there is one
-    has_wide = wide_integral > 0.0
-    f = wide[has_wide] / wide_integral[has_wide, None]
-    center = np.full(wide_integral.shape, np.nan)
-    width = np.full(wide_integral.shape, np.nan)
-    center[has_wide] = (f * x).sum(axis=1)
-    width[has_wide] = np.sqrt((f * (x - center[has_wide, None])**2).sum(axis=1))
+    fraction = amorph_stats.amorphous_fraction(wide, narrow)
+    center, width, _, _ = amorph_stats.wide_component_shape(x, wide)
+    has_wide = wide.sum(axis=1) > 0.0
 
     result = {
         "data": args.data,
