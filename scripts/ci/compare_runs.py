@@ -38,6 +38,10 @@ def cell(run, what):
         return "run failed"
     if what in run["quantities"]:
         return interval(run["quantities"][what])
+    if isinstance(run.get(what), bool):
+        return "yes" if run[what] else "no"
+    if what not in run:
+        return "-"
     return "{0:.4g}".format(run[what])
 
 
@@ -70,6 +74,8 @@ def main():
                                                cell(test, key)))
         for key, label in [("no_wide_component",
                             "fraction of samples without a wide component"),
+                           ("saves", "saved samples"),
+                           ("stopped", "stopped by the time budget"),
                            ("n_posterior", "posterior samples"),
                            ("log_z", "log(Z)"),
                            ("seconds", "sampler run time (s)")]:

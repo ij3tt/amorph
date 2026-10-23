@@ -47,14 +47,29 @@ find_package(Threads REQUIRED)
 target_link_libraries(dnest4 PUBLIC Threads::Threads)
 
 # --------------------------------------------------------------------- AMORPH
+# Everything but main() goes into a library, which the unit tests link too.
 file(GLOB AMORPH_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
+list(REMOVE_ITEM AMORPH_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
 
-add_executable(AMORPH ${AMORPH_SOURCES})
-target_include_directories(AMORPH PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_link_libraries(AMORPH PRIVATE dnest4 yaml-cpp)
+add_library(amorph_core STATIC ${AMORPH_SOURCES})
+target_include_directories(amorph_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(amorph_core PUBLIC dnest4 yaml-cpp)
+
+add_executable(AMORPH ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
+target_link_libraries(AMORPH PRIVATE amorph_core)
 
 if(WIN32 AND AMORPH_STATIC_LINK)
     target_link_options(AMORPH PRIVATE -static)
 endif()
 
 install(TARGETS AMORPH RUNTIME DESTINATION bin)
+
+# ---------------------------------------------------------------------- tests
+# Run with ctest. Not built when cross-compiling, since they could not run.
+option(AMORPH_BUILD_TESTS "Build the unit tests" ON)
+if(AMORPH_BUILD_TESTS AND NOT CMAKE_CROSSCOMPILING)
+    enable_testing()
+    add_executable(test_model ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_model.cpp)
+    target_link_libraries(test_model PRIVATE amorph_core)
+    add_test(NAME model COMMAND test_model)
+endif()
