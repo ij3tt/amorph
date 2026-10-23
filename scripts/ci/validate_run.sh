@@ -4,13 +4,18 @@
 # datasets and summarise the posterior in OUT_DIR/summary.json.
 # Used by .github/workflows/validate.yml.
 #
-# Usage: scripts/ci/validate_run.sh SRC_DIR DATA_FILE SAVES MINUTES OUT_DIR
+# Usage: scripts/ci/validate_run.sh SRC_DIR DATA_FILE SAVES MINUTES OUT_DIR \
+#            [KEY=VALUE ...]
 #
 # DATA_FILE is the name of a dataset in SRC_DIR/src. The sampler stops after
 # SAVES saved samples or after MINUTES minutes, whichever comes first; what
 # it saved by then is post-processed. The post-processing always uses the
 # scripts next to this file, so that two versions of the sampler are
 # compared with the same post-processing.
+#
+# Each KEY=VALUE sets a setting of config.yaml, such as
+# max_num_narrow_peaks=100 or seed=7; a commented-out setting (# seed: 42)
+# is switched on.
 #
 set -euo pipefail
 
@@ -23,6 +28,7 @@ SAVES="$3"
 MINUTES="$4"
 mkdir -p "$5"
 OUT="$(cd "$5" && pwd)"
+shift 5
 
 require cmake:cmake g++:g++ make:make
 setup_python "${REPO_ROOT}/build/venv"
@@ -44,6 +50,21 @@ sed -i \
     "${WORK}/config.yaml"
 sed -i -e "s|^[0-9]*\([[:space:]]*# Maximum number of saves\)|${SAVES}\1|" \
     "${WORK}/OPTIONS_AGGRESSIVE"
+
+for setting in "$@"; do
+    key="${setting%%=*}"
+    value="${setting#*=}"
+    pattern="^\([[:space:]]*\)\(# \)\?${key}:"
+    if ! grep -q "${pattern}" "${WORK}/config.yaml"; then
+        echo "validate: config.yaml has no setting '${key}'" >&2
+        exit 1
+    fi
+    sed -i -e "s|${pattern}.*|\1${key}: ${value}|" "${WORK}/config.yaml"
+done
+if [ $# -gt 0 ]; then
+    echo "validate: config.yaml after the settings $*:"
+    grep -v '^[[:space:]]*#' "${WORK}/config.yaml" | grep -v '^[[:space:]]*$'
+fi
 
 cd "${WORK}"
 echo "validate: running AMORPH on ${DATA}: at most ${SAVES} saves or" \
