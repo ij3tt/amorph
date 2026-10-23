@@ -72,4 +72,9 @@ if(AMORPH_BUILD_TESTS AND NOT CMAKE_CROSSCOMPILING)
     add_executable(test_model ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_model.cpp)
     target_link_libraries(test_model PRIVATE amorph_core)
     add_test(NAME model COMMAND test_model)
+    # The checks of the data file and config.yaml. The argument is where the
+    # bundled datasets are, which are read too.
+    add_executable(test_input ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_input.cpp)
+    target_link_libraries(test_input PRIVATE amorph_core)
+    add_test(NAME input COMMAND test_input ${CMAKE_CURRENT_SOURCE_DIR}/src)
 endif()
