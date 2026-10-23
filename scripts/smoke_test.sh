@@ -55,6 +55,49 @@ sed -i \
     -e 's/^    max_num_wide_peaks: .*/    max_num_wide_peaks: 10/' \
     "${WORK}/config.yaml"
 
+# A config.yaml that names a missing data file must stop AMORPH at once with
+# exit status 1 and an error message on stderr. On Windows this also checks
+# that AMORPH.exe does not wait for Enter when it shares the console with a
+# shell: the time limit turns a hang into a failure.
+BAD="${WORK}/missing_data"
+mkdir -p "${BAD}"
+cp "${WORK}/OPTIONS_SMOKE" "${BAD}/"
+sed -e 's/^data_file: .*/data_file: "no_such_file.txt"/' \
+    "${WORK}/config.yaml" > "${BAD}/config.yaml"
+
+# GNU timeout, where there is one (Git Bash on Windows has it too)
+with_time_limit() {
+    if timeout --version >/dev/null 2>&1; then
+        timeout "$@"
+    else
+        shift
+        "$@"
+    fi
+}
+
+echo "smoke_test: running with a missing data file..."
+LIMIT=60
+status=0
+( cd "${BAD}" && with_time_limit "${LIMIT}" "${BIN}" \
+      > stdout.txt 2> stderr.txt ) || status=$?
+cat "${BAD}/stderr.txt"
+if [ "${status}" -eq 124 ]; then
+    echo "smoke_test: FAILED - AMORPH did not exit within ${LIMIT} s" \
+         "(waiting for Enter?)" >&2
+    exit 1
+fi
+if [ "${status}" -ne 1 ]; then
+    echo "smoke_test: FAILED - exit status ${status} with a missing data" \
+         "file, expected 1" >&2
+    exit 1
+fi
+if ! grep -q "AMORPH: error: .*no_such_file\.txt" "${BAD}/stderr.txt"; then
+    echo "smoke_test: FAILED - no error message about the missing data" \
+         "file on stderr" >&2
+    exit 1
+fi
+echo "smoke_test: missing data file rejected OK"
+
 cd "${WORK}"
 
 echo "smoke_test: running the sampler..."

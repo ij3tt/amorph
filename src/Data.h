@@ -26,7 +26,8 @@ class Data
         // Construct as empty dataset
         Data();
 
-        // Load data from a text file
+        // Load data from a text file of two columns, x and y. Throws
+        // std::runtime_error if the file cannot be read or is not valid.
         void load(const char* filename);
 
         // Getters (by reference - use caution)
@@ -39,7 +40,7 @@ class Data
         double get_x_range() const { return x_range; }
         bool get_loaded() const { return loaded; }
 
-        // Calculate the summaries
+        // Calculate the summaries (throws std::logic_error if there is no data)
         void compute_summaries();
 };
 

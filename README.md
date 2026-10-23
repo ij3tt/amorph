@@ -50,6 +50,44 @@ and a CSV file of (some) output will be written to the disk.
 Important: make sure to save the results or copy the output file before
 starting another run as results will otherwise be overwritten.
 
+Checks of the input files
+=========================
+
+Before the sampler starts, AMORPH checks `config.yaml` and the data file.
+If something is wrong, it stops with exit status 1 and a message that names
+the file, the line and the setting:
+
+* `config.yaml` must be valid YAML and contain every setting of the bundled
+  one. `num_threads`, `max_num_narrow_peaks` and `max_num_wide_peaks` are
+  whole numbers of at least 1, `control_points` is a list of two numbers in
+  increasing order, and `0 <= left_edge < right_edge <= 1`. The files named
+  by `data_file` and `dnest4_options_file` must exist (relative paths start
+  from the folder AMORPH runs in).
+* The data file has two numbers per line, x and y, separated by spaces, tabs
+  or a comma. Blank lines and lines that start with `#` are skipped anywhere
+  in the file. There must be at least 10 data points, and x must be strictly
+  increasing.
+
+For example:
+
+```
+AMORPH: error: config.yaml: missing key 'inference_assumptions.control_points'
+AMORPH: error: config.yaml, line 5: 'num_threads' must be at least 1, got '0'
+AMORPH: error: config.yaml, line 8: cannot open the file 'my_data.txt' given by 'data_file' (relative paths start from the folder AMORPH runs in)
+AMORPH: error: my_data.txt, line 12: expected two numbers (x and y), got '10.22 abc'
+AMORPH: error: my_data.txt, line 40: the x values must be strictly increasing, but x = 10.76 follows x = 10.78 (line 39)
+```
+
+When `AMORPH.exe` was started by a double click, its window then stays open
+until Enter is pressed, so that the message can be read. In a command prompt,
+a terminal or a script it exits straight away.
+
+Control points outside the range of the data are allowed, with a warning:
+
+```
+# WARNING: the background control points (5, 40) lie outside the range of the data (10 to 40). Check control_points in config.yaml.
+```
+
 Recommendations for Use
 =======================
 
@@ -124,6 +162,20 @@ output files:
 
 ```bash
 bash scripts/smoke_test.sh build/AMORPH build/smoke
+```
+
+It also checks that a `config.yaml` naming a missing data file makes AMORPH
+exit at once with status 1 and an error message (on Windows: without waiting
+for Enter).
+
+### Unit tests
+
+`tests/test_model.cpp` checks the likelihood, the background and the peak
+shapes, and `tests/test_input.cpp` the checks of the data file and of
+`config.yaml`. Both are built with AMORPH and run by ctest:
+
+```bash
+(cd build && ctest --output-on-failure)
 ```
 
 ### Tests of the Python post-processing

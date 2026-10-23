@@ -2,6 +2,7 @@
 #define AMORPH_MyModel_h
 
 #include <ostream>
+#include <string>
 #include <tuple>
 #include "DNest4/code/DNest4.h"
 #include "Data.h"
@@ -73,6 +74,10 @@ class MyModel
         static void load_data(const char* filename);
         static void set_control_points(const std::tuple<double, double>& cps);
         static const std::vector<double>& get_x_knots() { return x_knots; }
+
+        // A warning if the control points lie outside the range of the data,
+        // or an empty string if they do not. Call it after load_data().
+        static std::string control_points_warning();
 };
 
 } // namespace AMORPH

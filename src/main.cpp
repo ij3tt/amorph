@@ -1,5 +1,7 @@
+#include <exception>
 #include <iostream>
 #include <fstream>
+#include <string>
 #include "DNest4/code/DNest4.h"
 
 // From this project
@@ -7,9 +9,20 @@
 #include "Data.h"
 #include "MyModel.h"
 
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
+
 using namespace AMORPH;
 
-int main()
+// Load the inputs and run the sampler. Invalid inputs throw exceptions.
+static void run()
 {
     // Load the config file
     Config::global.load("config.yaml");
@@ -24,8 +37,44 @@ int main()
     // Load data
     AMORPH::MyModel::load_data(Config::global.get_data_file().c_str());
 
+    // Not an error: the user may mean it
+    std::string warning = AMORPH::MyModel::control_points_warning();
+    if(!warning.empty())
+        std::cerr<<"# WARNING: "<<warning<<std::endl;
+
     // Run DNest4.
     DNest4::start<AMORPH::MyModel>(clo);
+}
+
+// AMORPH.exe started by a double click gets a console window of its own,
+// which closes as soon as the program exits: wait for Enter there, so that
+// the error message can be read. Never wait in a console that is shared
+// with a shell (cmd, PowerShell, bash) or in CI, where nobody presses Enter.
+static void wait_if_own_console()
+{
+#ifdef _WIN32
+    DWORD processes[2];
+    if(GetConsoleProcessList(processes, 2) == 1)
+    {
+        std::cerr<<"Press Enter to close this window."<<std::endl;
+        std::string line;
+        std::getline(std::cin, line);
+    }
+#endif
+}
+
+int main()
+{
+    try
+    {
+        run();
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr<<"AMORPH: error: "<<e.what()<<std::endl;
+        wait_if_own_console();
+        return 1;
+    }
 
     return 0;
 }
