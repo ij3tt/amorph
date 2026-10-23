@@ -131,6 +131,8 @@ Config::Config()
 ,max_num_wide_peaks(0)
 ,left_edge(0.0)
 ,right_edge(0.0)
+,narrow_peak_nu_min(0.1)
+,narrow_peak_nu_max(100.0)
 {
 
 }
@@ -227,6 +229,51 @@ void Config::load(const char* filename)
                                  + "', got " + describe(le) + " and "
                                  + describe(re));
 
+    // Optional: the bounds of nu of the narrow peaks, 0.1 to 100 as in the
+    // paper by default. The table of peak shapes (Lookup.cpp) covers just
+    // that range.
+    double new_nu_min = 0.1;
+    double new_nu_max = 100.0;
+    const std::string nu_path = ia + ".narrow_peak_nu";
+    const YAML::Node nus = assumptions["narrow_peak_nu"];
+    if(nus.IsDefined())
+    {
+        if(!nus.IsSequence() || nus.size() != 2)
+            throw std::runtime_error(where(f, nus) + ": '" + nu_path
+                                     + "' must be a list of two numbers, "
+                                     + "such as [0.1, 100.0], got "
+                                     + describe(nus));
+        new_nu_min = to_number(f, nus[0], "the first of '" + nu_path + "'");
+        new_nu_max = to_number(f, nus[1], "the second of '" + nu_path + "'");
+        if(!(new_nu_min < new_nu_max))
+            throw std::runtime_error(where(f, nus) + ": '" + nu_path
+                                     + "' must be in increasing order, got "
+                                     + describe(nus[0]) + " and "
+                                     + describe(nus[1]));
+        if(new_nu_min < 0.1 || new_nu_max > 100.0)
+            throw std::runtime_error(where(f, nus) + ": '" + nu_path
+                                     + "' must lie between 0.1 and 100, the "
+                                     + "range of the table of peak shapes, "
+                                     + "got " + describe(nus[0]) + " and "
+                                     + describe(nus[1]));
+    }
+
+    // Optional: the seed of the random number generator. DNest4 takes an
+    // unsigned int; without a seed it uses the time.
+    std::string new_seed;
+    const YAML::Node seed_node = config["seed"];
+    if(seed_node.IsDefined())
+    {
+        long long value;
+        if(!YAML::convert<long long>::decode(seed_node, value)
+                || value < 0 || value > 4294967295LL)
+            throw std::runtime_error(where(f, seed_node) + ": 'seed' must be "
+                                     + "a whole number from 0 to "
+                                     + "4294967295, got "
+                                     + describe(seed_node));
+        new_seed = std::to_string(value);
+    }
+
     // All good
     num_threads = new_num_threads;
     data_file = new_data_file;
@@ -236,11 +283,19 @@ void Config::load(const char* filename)
     max_num_wide_peaks = new_max_num_wide_peaks;
     left_edge = new_left_edge;
     right_edge = new_right_edge;
+    narrow_peak_nu_min = new_nu_min;
+    narrow_peak_nu_max = new_nu_max;
+    seed = new_seed;
 
     std::stringstream ss;
     ss << num_threads;
     args = {"main", "-t", ss.str(), "-d", data_file,
             "-o", dnest4_options_file};
+    if(!seed.empty())
+    {
+        args.push_back("-s");
+        args.push_back(seed);
+    }
     for(std::string& arg: args)
         argv.push_back(&arg[0]);
     argv.push_back(nullptr);

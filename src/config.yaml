@@ -10,6 +10,10 @@ data_file: "easy_data.txt"
 # Which file of DNest4 options to use
 dnest4_options_file: "OPTIONS_AGGRESSIVE"
 
+# Seed of the random number generator, a whole number. Without it the time
+# is used.
+# seed: 42
+
 # Section for things that affect the inference
 inference_assumptions:
 
@@ -24,4 +28,11 @@ inference_assumptions:
     # appear in? In these units, the domain goes from 0 to 1.
     left_edge: 0.3
     right_edge: 0.7
+
+    # Bounds of the shape parameter nu of the narrow (crystalline) peaks,
+    # which are Student-t profiles: nu = 1 is a Lorentzian, a large nu a
+    # Gaussian, and nu < 1 has tails heavier than a Lorentzian. The prior is
+    # log-uniform between the bounds; the paper uses [0.1, 100], the widest
+    # range allowed. See "The shape of the crystalline peaks" in README.md.
+    narrow_peak_nu: [0.1, 100.0]
 

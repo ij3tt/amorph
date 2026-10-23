@@ -25,6 +25,12 @@ class Config
 
         double left_edge, right_edge;
 
+        // Bounds of the shape parameter nu of the narrow peaks
+        double narrow_peak_nu_min, narrow_peak_nu_max;
+
+        // Seed of the random number generator, empty to use the time
+        std::string seed;
+
         // Mock "command line options": the strings, and pointers to them
         // followed by a null pointer, like the argv of main()
         std::vector<std::string> args;
@@ -54,6 +60,9 @@ class Config
         { return max_num_wide_peaks; }
         double get_left_edge() const { return left_edge; }
         double get_right_edge() const { return right_edge; }
+        double get_narrow_peak_nu_min() const { return narrow_peak_nu_min; }
+        double get_narrow_peak_nu_max() const { return narrow_peak_nu_max; }
+        const std::string& get_seed() const { return seed; }
 
         // A global instance
         static Config global;

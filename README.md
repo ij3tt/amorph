@@ -32,8 +32,10 @@ To configure a run, edit the file `config.yaml` to specify all the details of
 the data file and other things you might want to tweak.
 
 Four test datasets are stored in the repository
-(`0%glass_rhyolite_Emperyon.txt`, `50% glass.02step3secdwell.txt`,
-`90%_glass_basalt_Emperyon.txt`, and `easy_data.txt`).
+(`0%glass_rhyolite_Emperyon.txt`, `50% glass .02step3secdwell.txt`,
+`90%_glass_basalt_Emperyon.txt`, and `easy_data.txt`), and two more
+samples, `G30RAW_amorph.txt` and `N3RAW_amorph.txt` (26–46°), that show
+the ambiguity described in "The shape of the crystalline peaks" below.
 The program is set to run until
 10,000 saved parameter sets have been generated. Outputs may be viewed at any
 point, however, closing the program before reaching  10,000 will reduce the
@@ -120,6 +122,34 @@ in any text editor. Parameter values on line 4 (new level interval) and line 8
 (Backtracking scale length) can each independently be doubled. Note, while this
 will improve model outputs, it significantly lengthens the time of analysis.
 Therefore we only recommend changing one of these two parameters at a time.
+
+The shape of the crystalline peaks
+==================================
+
+The narrow (crystalline) peaks are Student-t profiles with a shape parameter
+ν shared by all of them. Its prior is log-uniform between the two values of
+`narrow_peak_nu` in `config.yaml`, by default `[0.1, 100.0]` as in the paper
+(the widest range allowed). A Student-t profile is a Pearson VII profile with
+exponent m = (ν + 1)/2: ν = 1 is a Lorentzian, a large ν approaches a
+Gaussian, and ν < 1 has tails heavier than a Lorentzian.
+
+Near ν = 0.1 a "narrow" peak puts most of its area into wide tails, and a few
+hundred of them can take the place of the amorphous hump. For some samples
+the data cannot tell the two descriptions apart, and the posterior of the
+amorphous fraction then has a second mode at or near 0. In a run on
+`src/N3RAW_amorph.txt` (at most 500 narrow and 100 wide peaks, ν in
+[0.1, 100]) about 12% of the posterior weight had a fraction below 0.2, with
+hundreds of narrow peaks at ν of about 0.14 to 0.19 and a fit as good as that
+of the main mode. In the same run on `src/G30RAW_amorph.txt` this mode had no
+weight.
+
+A narrower range, such as `narrow_peak_nu: [1.0, 100.0]` (no profile with
+tails heavier than a Lorentzian), changes the model of the paper: report it
+along with the results. `.github/workflows/experiment.yml` compares such
+settings on these two samples.
+
+`config.yaml` may also set `seed`, a whole number from 0 to 4294967295, for
+the random number generator of the sampler; without it the time is used.
 
 
 Using the source code
