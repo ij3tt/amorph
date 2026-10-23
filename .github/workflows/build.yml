@@ -17,7 +17,8 @@ jobs:
   windows:
     name: Windows executable (mingw cross-compile)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Some runner images lack mingw-w64, and installing it can be slow
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
