@@ -244,6 +244,33 @@ restarts the comparison). Each sampler run stops after 5000 saves or
 what it saved by then is post-processed; the log of each run reports the
 number of saves and levels every 10 minutes.
 
+`.github/workflows/experiment.yml` runs the two ambiguous samples,
+`src/N3RAW_amorph.txt` and `src/G30RAW_amorph.txt`, with four settings of
+the maximum numbers of peaks and of `narrow_peak_nu`, twice each with
+different seeds (16 runs in parallel, a few hours), and writes a table of
+how much posterior weight has an amorphous fraction of 0 or below 0.2.
+It is started the same way: "Run workflow", or the label `experiment` on a
+pull request.
+
+### Diagnosing the posterior
+
+`scripts/diagnose_posterior.py` tells whether the amorphous fraction of a run
+is well determined. Run it on the folder of a finished run, after
+`showresults.py`:
+
+```bash
+python scripts/diagnose_posterior.py src --data src/easy_data.txt --json diagnosis.json --table particles.csv.gz
+```
+
+It prints the posterior weight with a fraction of 0, below 0.2 and below
+0.45; for each of these bands the weighted medians of the log likelihood, the
+number of narrow peaks and their shape ν, and the misfit; and the weight of
+particles with nearly the maximum number of narrow peaks. A band with real
+weight at a low fraction, with hundreds of narrow peaks at a small ν and the
+same likelihood as the main mode, means that the data do not determine the
+fraction. `--table` writes one row per saved particle (a few hundred
+kilobytes, instead of the hundreds of megabytes of `sample.txt`).
+
 ### The legacy Makefile
 
 `src/Makefile` is the original build system and is still functional on Linux
