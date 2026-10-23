@@ -1,9 +1,7 @@
 {
   "setting": [
-    {"id": "a", "narrow": 500, "wide": 100, "nu": "[0.1, 100.0]", "control_points": "[10.0, 40.0]"},
-    {"id": "b", "narrow": 100, "wide": 50, "nu": "[0.1, 100.0]", "control_points": "[10.0, 40.0]"},
-    {"id": "c", "narrow": 500, "wide": 100, "nu": "[1.0, 100.0]", "control_points": "[10.0, 40.0]"},
-    {"id": "d", "narrow": 100, "wide": 50, "nu": "[1.0, 100.0]", "control_points": "[10.0, 40.0]"}
+    {"id": "c-cp10-40", "narrow": 500, "wide": 100, "nu": "[1.0, 100.0]", "control_points": "[10.0, 40.0]"},
+    {"id": "c-cp26-46", "narrow": 500, "wide": 100, "nu": "[1.0, 100.0]", "control_points": "[26.0, 46.0]"}
   ],
   "dataset": ["N3RAW_amorph.txt", "G30RAW_amorph.txt"],
   "replicate": [1, 2]
