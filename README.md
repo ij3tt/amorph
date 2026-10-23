@@ -245,12 +245,12 @@ what it saved by then is post-processed; the log of each run reports the
 number of saves and levels every 10 minutes.
 
 `.github/workflows/experiment.yml` runs the two ambiguous samples,
-`src/N3RAW_amorph.txt` and `src/G30RAW_amorph.txt`, with four settings of
-the maximum numbers of peaks and of `narrow_peak_nu`, twice each with
-different seeds (16 runs in parallel, a few hours), and writes a table of
-how much posterior weight has an amorphous fraction of 0 or below 0.2.
-It is started the same way: "Run workflow", or the label `experiment` on a
-pull request.
+`src/N3RAW_amorph.txt` and `src/G30RAW_amorph.txt`, with the settings listed
+in `scripts/ci/experiment_settings.json` (the maximum numbers of peaks,
+`narrow_peak_nu` and `control_points`), each with two seeds, all in
+parallel, and writes a table of how much posterior weight has an amorphous
+fraction of 0 or below 0.2. It is started the same way: "Run workflow", or
+the label `experiment` on a pull request.
 
 ### Diagnosing the posterior
 

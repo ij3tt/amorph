@@ -49,17 +49,18 @@ def main():
     for data in sorted({s["data"] for s, _, _ in runs}):
         print("### " + data)
         print()
-        print("| setting | peaks | nu_narrow range | seed | fraction | = 0 "
-              "| < 0.2 | < 0.45 | at cap | nu_narrow | narrow peaks "
-              "| noise nu | saves | minutes |")
-        print("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+        print("| setting | peaks | nu_narrow range | control points | seed "
+              "| fraction | = 0 | < 0.2 | < 0.45 | at cap | nu_narrow "
+              "| narrow peaks | noise nu | saves | minutes |")
+        print("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
         for s, summary, d in sorted(
                 (r for r in runs if r[0]["data"] == data),
                 key=lambda r: (r[0]["setting"], r[0]["seed"])):
             row = [s["setting"],
                    "{0}/{1}".format(s["max_num_narrow_peaks"],
                                     s["max_num_wide_peaks"]),
-                   s["narrow_peak_nu"], str(s["seed"])]
+                   s["narrow_peak_nu"], s.get("control_points", "-"),
+                   str(s["seed"])]
             if d is None:
                 row += ["run failed"] + ["-"] * 9
             else:
