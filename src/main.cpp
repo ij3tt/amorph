@@ -37,6 +37,11 @@ static void run()
     // Load data
     AMORPH::MyModel::load_data(Config::global.get_data_file().c_str());
 
+    // Not an error: the user may mean it
+    std::string warning = AMORPH::MyModel::control_points_warning();
+    if(!warning.empty())
+        std::cerr<<"# WARNING: "<<warning<<std::endl;
+
     // Run DNest4.
     DNest4::start<AMORPH::MyModel>(clo);
 }

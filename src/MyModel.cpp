@@ -333,5 +333,19 @@ void MyModel::load_data(const char* filename)
     x_knots[3] = data.get_x_max();
 }
 
+std::string MyModel::control_points_warning()
+{
+    // The knots are x_min, the two control points and x_max. A control
+    // point on the edge of the data is fine.
+    if(x_knots[1] >= x_knots[0] && x_knots[2] <= x_knots[3])
+        return "";
+
+    std::stringstream s;
+    s<<"the background control points ("<<x_knots[1]<<", "<<x_knots[2]
+     <<") lie outside the range of the data ("<<x_knots[0]<<" to "
+     <<x_knots[3]<<"). Check control_points in config.yaml.";
+    return s.str();
+}
+
 } // namespace AMORPH
 
