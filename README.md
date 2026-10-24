@@ -7,6 +7,8 @@ and [Michael Rowe](http://www.env.auckland.ac.nz/people/michael-rowe)
 AMORPH is free software, released under the GNU General Public License,
 version 3. See the LICENSE file for details.
 
+*Русская версия этого файла: [README.ru.md](README.ru.md).*
+
 Guide to installing and operating:
 ==================================
 
@@ -105,12 +107,11 @@ range the X-ray diffraction pattern is dominated by only the crystalline
 componentry and thus incorporation of higher 2-theta values skews measured
 results to higher measured crystallinities.
 
-Background positions are currently optimized for the use of CuKa x-ray sources,
-with linear fits between 10–40° 2theta as described in the manuscript. For
-other X-ray sources, it may be necessary to adjust these fixed points to
-provide the best fit to the diffraction patterns. This may be modified by
-changing the values of `control_points` in `config.yaml` (which can be opened
-in any text editor). For some analyses, typically when more data points are analysed
+Background positions. The paper uses linear fits between 10–40° 2theta
+with CuKa x-ray sources. Our calibration on the standards (below) found
+interior control points less accurate than a straight background over the
+whole data range: put `control_points` at the edges of your data instead.
+See "Recommended settings and calibration". For some analyses, typically when more data points are analysed
 (5–50 degrees 2theta) or for highly crystalline materials, the numerical
 settings of the DNest4 sampler are not optimal for obtaining useful results,
 and need to be made more conservative (making the run slower).
@@ -145,11 +146,78 @@ weight.
 
 A narrower range, such as `narrow_peak_nu: [1.0, 100.0]` (no profile with
 tails heavier than a Lorentzian), changes the model of the paper: report it
-along with the results. `.github/workflows/experiment.yml` compares such
+along with the results. In the experiments summarised under "Recommended
+settings and calibration" this range removed the low mode in every run.
+`.github/workflows/experiment.yml` compares such
 settings on these two samples.
 
 `config.yaml` may also set `seed`, a whole number from 0 to 4294967295, for
 the random number generator of the sampler; without it the time is used.
+
+
+Recommended settings and calibration
+====================================
+
+Four experiments on the bundled samples (pull requests #5, #6 and #7, run by
+`.github/workflows/experiment.yml`) motivate settings that differ from the
+paper, and quantify the accuracy of the amorphous fraction. We recommend:
+
+* `narrow_peak_nu: [1.0, 100.0]`. With ν < 1 the posterior of the fraction
+  can have a second mode at or near 0 (see "The shape of the crystalline
+  peaks"); with ν ≥ 1 this mode had no weight in any of the runs. This is a
+  change to the model of the paper: report it along with the results.
+* `control_points` at the edges of the data range (e.g. `[26.0, 46.0]` for
+  data spanning 26–46° 2θ), not `[10, 40]`. Interior control points let the
+  background bend under the amorphous halo: on `N3RAW_amorph.txt` this moved
+  the fraction from 0.63 to 0.72, and on the standards (below) the
+  edges-of-data background was more accurate at both ends of the scale.
+* `max_num_narrow_peaks: 500` and `max_num_wide_peaks: 100`. Doubling the
+  caps does not change the measured fraction but roughly doubles the run
+  time. Raise them to 1000/200 only if the diagnosis (below) shows a large
+  posterior weight at the cap (say, above 20%).
+
+Calibration
+-----------
+
+Three of the bundled samples are standards with known glass contents. With
+the recommended settings (straight background, ν ≥ 1), four seeds and two
+caps, they measure:
+
+| true fraction | measured median [range over seeds] |
+| --- | --- |
+| 0% | 0.03 [0.00 – 0.05] |
+| 50% | 0.51 [0.50 – 0.53] |
+| 90% | 0.83 [0.82 – 0.85] |
+
+The method is accurate to about ±1–2 percentage points near the middle of
+the scale but biased at the ends: +3–4 points near 0% and about −7 points
+at 90%, the latter regardless of the peak cap. A piecewise-linear
+correction of the measured fraction f:
+
+* below 0.5: f_true ≈ 0.98 f
+* above 0.5: f_true ≈ 0.50 + 1.25 (f − 0.51)
+
+For example, the unknowns `N3RAW_amorph.txt` and `G30RAW_amorph.txt`
+measure 0.63 and 0.70, which correct to about 0.65 and 0.74. The
+correction rests on three standards and four seeds: treat it as
+preliminary, and state whether a quoted fraction is measured or corrected.
+
+Diagnosis and reporting
+-----------------------
+
+Always run `scripts/diagnose_posterior.py` (see "Diagnosing the posterior")
+before quoting a fraction:
+
+* A large weight at the cap of narrow peaks (above ~20%) means the prior
+  limit, not the data, sets their number: rerun with the caps doubled.
+* A collapsed posterior (a tiny [q25, q75] interval) or a low effective
+  sample size means the run is not settled: rerun with a different `seed`.
+* Near 0% or 100% the sampler sometimes locks onto exactly 0 or 1; read
+  fractions below ~0.05 as "approximately zero", and rerun with a second
+  seed for fractions above ~0.9.
+
+The seed-to-seed spread of the fraction is about ±1–2 percentage points;
+quote it as the reproducibility of the method.
 
 
 Using the source code

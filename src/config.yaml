@@ -17,7 +17,9 @@ dnest4_options_file: "OPTIONS_AGGRESSIVE"
 # Section for things that affect the inference
 inference_assumptions:
 
-    # Control points
+    # Control points. The paper uses [10, 40]; the calibration experiments
+    # in README ("Recommended settings and calibration") recommend the
+    # edges of the data range instead.
     control_points: [10.0, 40.0]
 
     # Maximum number of peaks
@@ -33,6 +35,9 @@ inference_assumptions:
     # which are Student-t profiles: nu = 1 is a Lorentzian, a large nu a
     # Gaussian, and nu < 1 has tails heavier than a Lorentzian. The prior is
     # log-uniform between the bounds; the paper uses [0.1, 100], the widest
-    # range allowed. See "The shape of the crystalline peaks" in README.md.
+    # range allowed. The experiments in README ("Recommended settings and
+    # calibration") recommend [1.0, 100]: nu < 1 lets heavy-tailed profiles
+    # mimic the amorphous hump. See "The shape of the crystalline peaks"
+    # in README.md.
     narrow_peak_nu: [0.1, 100.0]
 
