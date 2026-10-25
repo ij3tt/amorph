@@ -105,7 +105,10 @@ def _csv(frame):
 
 
 def _read_csv(data):
-    return pd.read_csv(io.BytesIO(data), float_precision="round_trip")
+    # pandas 3 reads them back exactly by default; older versions on request
+    exact = {} if int(pd.__version__.split(".")[0]) >= 3 \
+        else {"float_precision": "round_trip"}
+    return pd.read_csv(io.BytesIO(data), **exact)
 
 
 def figure_png(results, draw, dpi=100):
