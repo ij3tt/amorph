@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #
 # CI: build the AMORPH sources in SRC_DIR, run them on one of the bundled
-# datasets and summarise the posterior in OUT_DIR/summary.json.
+# datasets, summarise the posterior in OUT_DIR/summary.json and archive the
+# run in OUT_DIR/run.amorph (src/amorph_archive.py).
 # Used by .github/workflows/validate.yml.
 #
 # Usage: scripts/ci/validate_run.sh SRC_DIR DATA_FILE SAVES MINUTES OUT_DIR \
@@ -124,5 +125,5 @@ fi
 echo "validate: post-processing"
 MPLBACKEND=Agg python3 "${REPO_ROOT}/scripts/ci/summarize_run.py" \
     --data "${DATA}" --seconds "${seconds}" ${stopped} \
-    --out "${OUT}/summary.json"
+    --out "${OUT}/summary.json" --archive "${OUT}/run.amorph"
 cat "${OUT}/summary.json"
