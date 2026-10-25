@@ -76,6 +76,26 @@ jobs:
             build/smoke/figures/
           if-no-files-found: error
 
+  gui:
+    name: GUI tests and self-test (Linux, no screen)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build, test the GUI and run its self-test
+        run: bash scripts/ci/gui.sh
+
+      # A screenshot of every screen of the self-test, and its run archives
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: gui-screenshots
+          path: |
+            build/gui-self-test/*.png
+            build/gui-self-test/runs/*/*.amorph
+          if-no-files-found: error
+
   macos:
     name: macOS build, tests and smoke test
     runs-on: macos-latest

@@ -168,6 +168,80 @@ In Python, `amorph_archive.read("FILE.amorph")` gives back the results of
 the run, and `amorph_results.FIGURES` draws each figure of them on a
 matplotlib figure.
 
+The graphical interface
+=======================
+
+`src/amorph_gui` is a desktop program for all of the above: it opens a
+data file, sets up and runs the sampler for one or more seeds, and shows
+and compares the results. Its text is in Russian (all of it is in
+`src/amorph_gui/strings.py`, so that it can be translated). It needs
+PySide6 and pyqtgraph besides the packages of the post-processing, and
+the AMORPH executable (see "Using the source code"):
+
+```
+pip install PySide6 pyqtgraph
+cd src
+python -m amorph_gui [FILE]
+```
+
+`FILE`, if given, is a data file or a run archive to open. The program
+runs the AMORPH executable that is next to it (in `src/`, or in `build/`
+of a CMake build of the repository) or on the PATH, unless «Настройки…»
+(or `--amorph PATH`) names another. There is no packaged version of the
+program yet.
+
+It has four screens, listed on the left:
+
+* «Данные и модель»: the data file, read with the rules of the sampler
+  (an error names the file and the line), on a plot on which the range to
+  analyse and the two background control points are dragged. A band
+  shows where the wide peaks may be (`left_edge` and `right_edge`, as
+  fractions of the analysed range). The form has every setting of
+  `config.yaml`, with the limits that AMORPH enforces, the DNest4 options
+  file (`OPTIONS_AGGRESSIVE` or `OPTIONS`) with its maximum number of
+  saves, and the number of seeds; it starts with `narrow_peak_nu: [1.0,
+  100.0]`. Before a run it checks that the control points lie in the
+  analysed range, warns when the data do not reach beyond them on either
+  side or when the lower bound of ν is below 1 (see "Recommended settings
+  and calibration"), and starts nothing while there is an error.
+  «Загрузить config.yaml…» and «Сохранить config.yaml…» read and write
+  the settings.
+* «Прогоны»: each seed gets a folder `runs/<date>_<data>_seed<k>/` (in
+  the folder set in «Настройки…», by default `runs/` in the current one)
+  with `config.yaml`, the options file and the points of the analysed
+  range: AMORPH has no setting for the range, so the program writes them
+  there. The seeds (seed, seed + 1, ...) run one after another. The
+  screen shows the number of saves and levels and the time, the output of
+  the sampler (also kept in the folder as `run.log`) and the model curve
+  of the last saved sample. «Остановить» stops the sampler, keeps its
+  complete saves, post-processes them and marks the run as incomplete;
+  the seeds still waiting are cancelled.
+* «Результаты»: each run is post-processed as `showresults.py` does it,
+  and its archive is written in its folder. The tabs: «Итог», the median
+  of the amorphous fraction with its 50% and 90% intervals, cards for the
+  diagnosis (red when more than 5% of the posterior weight has a fraction
+  below 0.2; amber when more than 5% is at the cap of narrow peaks, when
+  the control points lie outside the data, or when the run stopped before
+  its planned number of saves) and the effective sample size; «Модель»,
+  «Распределения» and «Сэмплер», the figures of `showresults.py` (the
+  last with log(Z), the information and the effective sample size); and
+  «Полный отчёт», the report. Each figure saves as PNG, and the archive
+  and the posterior samples (CSV) save too.
+* «Сравнение»: a table of run archives, such as the seeds of a batch
+  (added when the batch ends) or the `run.amorph` files that the
+  experiment and validate workflows upload. Per archive: the data file,
+  the settings, the seed, the median of the fraction with its 50%
+  interval, also drawn as a bar on a scale common to all rows, and the
+  posterior weight below 0.2 and at the cap. It exports as CSV and
+  Markdown.
+
+«Открыть архив…», on every screen, shows an archive on «Результаты».
+As «Итог» says, the fraction is a ratio of integrated intensities, not a
+mass fraction, and the spread between seeds is the run-to-run error of
+the sampler, not the posterior interval (see "Recommended settings and
+calibration"). The numbers and figures are those of `amorph_stats.py`,
+`amorph_results.py` and `amorph_archive.py`.
+
 Checks of the input files
 =========================
 
@@ -273,32 +347,61 @@ the random number generator of the sampler; without it the time is used.
 Recommended settings and calibration
 ====================================
 
-The experiments on the bundled samples (pull requests #5, #6 and #7, run by
-`.github/workflows/experiment.yml`) motivate one setting that differs from
-the paper, show how much the background control points matter, and give a
-first look at the accuracy on three standards. Each material is a single
-dataset run with a few seeds: read the numbers below as what was observed on
-these samples, not as general accuracies.
+The experiments on the bundled samples (pull requests #5, #6, #7 and #10,
+run by `.github/workflows/experiment.yml`) motivate one setting that differs
+from the paper, show how much the background control points and the range of
+2θ matter, and give a first look at the accuracy on three standards. Each
+material is a single dataset run with a few seeds: read the numbers below as
+what was observed on these samples, not as general accuracies.
 
 * `narrow_peak_nu: [1.0, 100.0]`. With ν < 1 the posterior of the fraction
   can have a second mode at or near 0 (see "The shape of the crystalline
   peaks"); with ν ≥ 1 this mode had no weight in any of the runs on N3RAW
   and G30RAW. This is a change to the model of the paper: report it along
   with the results.
-* `control_points`: keep the background straight under the whole amorphous
-  halo, with the control points where the halo ends.
-  - If the data reach well beyond the halo on both sides, the edges of the
-    data do this. On the 90% glass standard (5–50°) control points at the
-    edges, `[5, 50]`, gave 0.83–0.84 against 0.79–0.80 with `[10, 40]`. On
-    the 0% and 50% standards the two choices differed by no more than the
-    spread between seeds, apart from one collapsed run with `[10, 40]` on
-    the 0% standard (0.33).
-  - If the data do not reach beyond the halo, no choice is safe, and the
-    result depends on it. On `N3RAW_amorph.txt` (26–46°, halo centred near
-    35°) the fraction is 0.72 with `[10, 40]` and 0.63 with `[26, 46]` (two
-    seeds each, both choices), while G30RAW does not change. The standards
-    cannot tell which is right, because their data reach much further. Measure
-    a wider range of 2θ, or quote the fraction for both choices.
+* `control_points`: measure, and analyse, a range of 2θ that reaches well
+  beyond the amorphous halo on both sides, and keep the background straight
+  under the whole halo, with the control points where the halo ends.
+  - With data well beyond the halo, the edges of the data do this. On the
+    90% glass standard (5–50°) control points at the edges, `[5, 50]`, gave
+    0.83–0.84 against 0.79–0.80 with `[10, 40]`. On the 0% and 50% standards
+    the two choices differed by no more than the spread between seeds, apart
+    from one collapsed run with `[10, 40]` on the 0% standard (0.33). On
+    N3RAW and G30RAW cut to 20–50° (halo near 29–40°), the background
+    straight from edge to edge, `[20, 50]`, had a log(Z) about 10 nats higher
+    than control points at `[25, 45]` on both samples, more than the 2–3
+    nats between seeds: the data favour it. log(Z) compares choices only on
+    the same data file.
+  - Without data beyond the halo the background is not pinned, and the
+    result depends on the choice. On `N3RAW_amorph.txt` (26–46°, halo
+    centred near 35°) the fraction was 0.72 with `[10, 40]` and 0.63 with
+    `[26, 46]`. The whole scan (`N3RAW.txt`, 5–70°) settled it: with the
+    background pinned by data on both sides, the fraction within 26–46° was
+    0.63–0.68 in every run, and 0.66–0.68 with the straight background over
+    20–50°. The 0.72 came from the control point at 10°, outside the data,
+    where the background was extrapolated: AMORPH warns about such a
+    control point. G30RAW gave 0.71–0.73 within 26–46° with every choice,
+    as it did on 26–46° alone.
+  - Even with data beyond the halo some choice remains. On N3RAW the
+    reasonable ones (range 20–50° or 15–70°, control points at the edges or
+    at 25° and 45°) spread the fraction within 26–46° over about 0.05, more
+    than the spread between seeds (0.01–0.02). Prefer the choice with the
+    higher log(Z), and quote the spread over the others as an uncertainty
+    of the result: for N3RAW within 26–46°, about 0.67, and 0.63–0.68 over
+    the reasonable choices.
+* The fraction depends on the range of 2θ it is integrated over: quote the
+  range with it. Make sure that `left_edge` and `right_edge` let the wide
+  peaks lie under every amorphous hump in the range. By default they cover
+  0.3–0.7 of it: on 15–70° that is 31.5–53.5°, which leaves out the second
+  hump of N3RAW and G30RAW near 60°. With `left_edge: 0.2` and
+  `right_edge: 0.95` (26–67°) the wide component took in both humps, and
+  the fraction over 15–70° was 0.66–0.67 for N3RAW and 0.74 for G30RAW,
+  against 0.65–0.66 and 0.69 over 20–50° (three of these four runs were
+  stopped by the time budget at 54–61% of their saves, so these numbers are
+  preliminary).
+* Comparing samples measured and analysed the same way is more robust than
+  any single fraction: G30RAW came out more amorphous than N3RAW by 0.04–0.08
+  with every range and choice of control points.
 * `max_num_narrow_peaks: 500` and `max_num_wide_peaks: 100`. On the
   standards, doubling the caps did not move the measured fraction but made
   the runs up to twice as long. Raise them to 1000/200 if the diagnosis
@@ -332,7 +435,7 @@ What this shows, and what it does not:
   They show the size of the effect at the ends of the scale, about +3
   points at 0% and about −7 points at 90%, but they are not a calibration
   curve: do not correct the fractions of other samples with them. N3RAW and
-  G30RAW in particular are other materials, measured over 26–46°.
+  G30RAW in particular are other materials, measured over 5–70°.
 * The spread between seeds, about ±1–2 points at 50% and 90%, is the
   run-to-run spread of the sampler on one data file. It is neither the
   accuracy of the method nor the reproducibility of a measurement, which
@@ -357,7 +460,9 @@ before quoting a fraction:
 Run important samples with at least two seeds, and quote the spread between
 them separately from the posterior interval: the interval is the
 uncertainty given the data, the spread the run-to-run error of the
-sampler.
+sampler. Quote the range of 2θ and the control points with the fraction,
+and, where the choice of them moves the fraction more than the seeds do,
+that spread too.
 
 
 Using the source code
@@ -427,6 +532,29 @@ shapes, and `tests/test_input.cpp` the checks of the data file and of
 python -m pytest tests
 ```
 
+### Tests of the graphical interface
+
+`tests/gui/` tests the GUI without a screen: the form writes and reads
+`config.yaml` back unchanged, the checks before a run, an archive of the
+fake run of `tests/test_results.py` on «Результаты», the comparison table,
+and the runs, stops and failures of a fake sampler. They need PySide6,
+pyqtgraph and pytest-qt, and are skipped without them:
+
+```bash
+QT_QPA_PLATFORM=offscreen python -m pytest tests/gui
+```
+
+The self-test runs the bundled `easy_data.txt` with the tiny DNest4
+options of the smoke test through the GUI itself: two seeds to the end
+and a third that it stops, their post-processing and archives, the
+comparison and an archive opened again. It saves a screenshot of every
+screen to the folder it is given, and the runs to `runs/` in it:
+
+```bash
+cd src
+QT_QPA_PLATFORM=offscreen python -m amorph_gui --self-test ../build/gui-self-test --amorph ../build/AMORPH
+```
+
 ### Continuous integration
 
 The repository is built on two CI services, which run the same scripts from
@@ -437,7 +565,10 @@ The repository is built on two CI services, which run the same scripts from
   test on it, cross-compiles `AMORPH.exe` with mingw-w64 and runs the smoke
   test on it on a Windows runner, and builds and tests the macOS executable
   (Apple Silicon) on a macOS runner. The executables and the run archive of
-  the Linux smoke test, with its figures, are uploaded as artefacts.
+  the Linux smoke test, with its figures, are uploaded as artefacts. A
+  fifth job runs the tests of the graphical interface and its self-test
+  on Linux without a screen (`scripts/ci/gui.sh`) and uploads the
+  screenshots and the archives of the self-test (`gui-screenshots`).
 * GitVerse CI (`.gitverse/workflows/build.yml`), on every push: the same
   Linux build and tests, and the cross-compiled `AMORPH.exe` as an artefact
   (kept for 7 days). GitVerse has no Windows runners, so the executable is
@@ -472,7 +603,8 @@ version 1.2.0:
 `.github/workflows/validate.yml` compares the results of two versions of
 AMORPH: it runs both on the four bundled datasets and writes a table of the
 posterior summaries (amorphous fraction, the shape of the wide component,
-the noise parameters, the numbers of peaks). It takes hours, so it runs on
+the noise parameters, the numbers of peaks) and of the speed of each run
+(saves per minute). It takes hours, so it runs on
 demand only: "Run workflow" on the GitHub Actions tab (the reference version
 is an input, master by default), or the label `validate` on a pull request
 (the reference is the base of the pull request; adding the label again
