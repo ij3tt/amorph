@@ -406,7 +406,8 @@ The repository is built on two CI services, which run the same scripts from
 `.github/workflows/validate.yml` compares the results of two versions of
 AMORPH: it runs both on the four bundled datasets and writes a table of the
 posterior summaries (amorphous fraction, the shape of the wide component,
-the noise parameters, the numbers of peaks). It takes hours, so it runs on
+the noise parameters, the numbers of peaks) and of the speed of each run
+(saves per minute). It takes hours, so it runs on
 demand only: "Run workflow" on the GitHub Actions tab (the reference version
 is an input, master by default), or the label `validate` on a pull request
 (the reference is the base of the pull request; adding the label again

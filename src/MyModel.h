@@ -34,10 +34,19 @@ class MyModel
         std::vector<double> narrow;
         std::vector<double> wide;
 
-        // Calculate the parts of the model-predicted curve
+        // Number of updates of the narrow and wide curves since they were
+        // last computed in full
+        int narrow_updates, wide_updates;
+
+        // Calculate the parts of the model-predicted curve. An update of the
+        // curve of the peaks subtracts the peaks that the last perturbation
+        // removed and adds those it added.
         void compute_bg();
         void compute_narrow(bool update=false);
         void compute_wide(bool update=false);
+        void compute_peaks(const DNest4::RJObject<MyConditionalPrior>& peaks,
+                           double shape, bool update,
+                           std::vector<double>& curve, int& num_updates);
 
     public:
         // Constructor only gives size of params
@@ -58,6 +67,12 @@ class MyModel
         // Return string with column information
         std::string description() const;
 
+        // For the tests: the curves of the narrow and wide peaks, and a
+        // computation of all the curves from scratch
+        const std::vector<double>& get_narrow() const { return narrow; }
+        const std::vector<double>& get_wide() const { return wide; }
+        void recompute_curves();
+
 
         /********** STATIC STUFF **********/
     private:
@@ -69,6 +84,13 @@ class MyModel
 
         // x-positions of background knots
         static std::vector<double> x_knots;
+
+        // The largest |y| of the data
+        static double y_scale;
+
+        // The curves of the peaks are computed in full after this many
+        // updates, so that rounding errors cannot build up
+        static const int max_num_updates = 1000;
 
     public:
         static void load_data(const char* filename);

@@ -3,7 +3,8 @@
 #include "Config.h"
 #include "DNest4/code/DNest4.h"
 #include "Likelihood.h"
-#include "Lookup.h"
+#include "Peaks.h"
+#include <algorithm>
 #include <cmath>
 #include <sstream>
 #include <stdexcept>
@@ -17,6 +18,7 @@ const DNest4::Laplace MyModel::laplace(0.0, 20.0);
 // The outer background knots are the edges of the data, set by load_data():
 // they cannot be read from the data here, before they are loaded.
 std::vector<double> MyModel::x_knots{0.0, 10.0, 40.0, 0.0};
+double MyModel::y_scale = 0.0;
 
 // Constructor
 MyModel::MyModel()
@@ -30,6 +32,8 @@ MyModel::MyModel()
 ,bg(data.get_y().size())
 ,narrow(data.get_y().size())
 ,wide(data.get_y().size())
+,narrow_updates(0)
+,wide_updates(0)
 {
     if(!data.get_loaded())
         std::cerr<<"# WARNING: it appears no data has been loaded."<<std::endl;
@@ -75,8 +79,8 @@ double MyModel::perturb(DNest4::RNG& rng)
             return -1E300;
         else
             logH = 0.0;
-            
-        compute_narrow(narrow_peaks.get_removed().size() == 0);
+
+        compute_narrow(true);
     }
     else if(choice == 1)
     {
@@ -89,7 +93,7 @@ double MyModel::perturb(DNest4::RNG& rng)
         else
             logH = 0.0;
 
-        compute_wide(wide_peaks.get_removed().size() == 0);
+        compute_wide(true);
     }
     else
     {
@@ -161,89 +165,66 @@ void MyModel::compute_bg()
 
 void MyModel::compute_narrow(bool update)
 {
-    const auto& data_x = data.get_x();
-
-    // Zero the curve if this is not an update
-    if(!update)
-        for(double& y: narrow)
-            y = 0.0;
-
-    const auto& components = (update)?(narrow_peaks.get_added())
-                                :(narrow_peaks.get_components());
-
-    double c, m, w, w_inv, coeff, xx;
-    for(size_t i=0; i<components.size(); ++i)
-    {
-        // {center, log_mass, width}
-        c = components[i][0];
-        m = exp(components[i][1]);
-        w = components[i][2];
-        w_inv = 1.0/w;
-        coeff = m*w_inv;
-
-        for(size_t j=0; j<narrow.size(); ++j)
-        {
-            xx = (data_x[j] - c)*w_inv;
-            if(std::abs(xx) <= 20.0)
-                narrow[j] += coeff*Lookup::evaluate(peak_shape, xx);
-        }
-    }
+    compute_peaks(narrow_peaks, peak_shape, update, narrow, narrow_updates);
 }
 
 void MyModel::compute_wide(bool update)
 {
+    compute_peaks(wide_peaks, log(100.0), update, wide, wide_updates);
+}
+
+void MyModel::compute_peaks(const DNest4::RJObject<MyConditionalPrior>& peaks,
+                            double shape, bool update,
+                            std::vector<double>& curve, int& num_updates)
+{
     const auto& data_x = data.get_x();
+    const auto& components = peaks.get_components();
+    const auto& added = peaks.get_added();
+    const auto& removed = peaks.get_removed();
 
-    // Zero the curve if this is not an update
-    if(!update)
-        for(double& y: wide)
-            y = 0.0;
+    if(update && added.empty() && removed.empty())
+        return;
 
-    const auto& components = (update)?(wide_peaks.get_added())
-                                :(wide_peaks.get_components());
+    // Compute the curve in full when asked to, after max_num_updates
+    // updates, or when an update would evaluate as many peaks. The last
+    // includes having no peaks left, so that the curve is then exactly zero.
+    bool full = !update || num_updates >= max_num_updates
+                    || added.size() + removed.size() >= components.size();
 
-    double c, m, w, w_inv, coeff, xx;
-    double ps = log(100.0);
-    for(size_t i=0; i<components.size(); ++i)
+    // Subtracting a peak leaves rounding errors of about 1E-16 times its
+    // height (mass/width) for each update made while it was there. That
+    // only matters for a peak far taller than the data, as the sampler can
+    // propose while it explores the prior: such a peak is not subtracted.
+    for(size_t i=0; i<removed.size() && !full; ++i)
+        full = exp(removed[i][1])/removed[i][2] > 1E3*y_scale;
+
+    if(full)
     {
-        // {center, log_mass, width}
-        c = components[i][0];
-        m = exp(components[i][1]);
-        w = components[i][2];
-        w_inv = 1.0/w;
-        coeff = m*w_inv;
-
-        for(size_t j=0; j<narrow.size(); ++j)
-        {
-            xx = (data_x[j] - c)*w_inv;
-            if(std::abs(xx) <= 20.0)
-                wide[j] += coeff*Lookup::evaluate(ps, xx);
-        }
+        std::fill(curve.begin(), curve.end(), 0.0);
+        add_peaks(components, shape, 1.0, data_x, curve);
+        num_updates = 0;
+    }
+    else
+    {
+        add_peaks(removed, shape, -1.0, data_x, curve);
+        add_peaks(added, shape, 1.0, data_x, curve);
+        ++num_updates;
     }
 }
 
-
+void MyModel::recompute_curves()
+{
+    compute_bg();
+    compute_narrow();
+    compute_wide();
+}
 
 double MyModel::log_likelihood() const
 {
-    double logL = 0.0;
-
-    // References to the data vector
-    const auto& data_y = data.get_y();
-
-    // Normalising constant of the t distribution
-    double C = student_t_log_norm(nu);
-
     // T likelihood
-    double model, resid, var;
-    for(size_t i=0; i<data_y.size(); ++i)
-    {
-        model = bg[i] + narrow[i] + wide[i];
-        resid = data_y[i] - model;
-        var = sigma0*sigma0 + sigma1*model;
-
-        logL += C + student_t_log_kernel(resid, var, nu);
-    }
+    auto model = [this](size_t i) { return bg[i] + narrow[i] + wide[i]; };
+    double logL = student_t_log_likelihood(data.get_y(), model, sigma0,
+                                           sigma1, nu);
 
     if(std::isnan(logL) || std::isinf(logL))
         logL = -1E300;
@@ -336,6 +317,10 @@ void MyModel::load_data(const char* filename)
 
     x_knots[0] = data.get_x_min();
     x_knots[3] = data.get_x_max();
+
+    y_scale = 0.0;
+    for(double y: data.get_y())
+        y_scale = std::max(y_scale, std::abs(y));
 }
 
 std::string MyModel::control_points_warning()
