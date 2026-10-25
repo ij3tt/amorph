@@ -110,7 +110,8 @@ class MainWindow(QMainWindow):
         self.nav.setObjectName("nav")
         for i, name in enumerate([S.SCREEN_DATA, S.SCREEN_RUNS,
                                   S.SCREEN_RESULTS, S.SCREEN_COMPARE]):
-            QListWidgetItem("{0}   {1}".format(i + 1, name), self.nav)
+            item = QListWidgetItem("{0}   {1}".format(i + 1, name), self.nav)
+            item.setSizeHint(QSize(0, 44))
         self.nav.setFixedWidth(224)
         self.stack = QStackedWidget()
         for screen in self.screens:

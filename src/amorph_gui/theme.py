@@ -155,6 +155,10 @@ QLineEdit, QAbstractSpinBox, QComboBox {{ background: {SURFACE};
 QComboBox {{ font-family: {SANS_CSS}; }}
 QLineEdit:focus, QAbstractSpinBox:focus, QComboBox:focus {{
     border: 1px solid {ACCENT}; }}
+/* The editor inside a number field takes the look of the field, not that
+   of a field of its own, which would push the text out of sight */
+QAbstractSpinBox QLineEdit, QComboBox QLineEdit {{ border: none;
+    padding: 0; margin: 0; background: transparent; }}
 QLineEdit:disabled, QAbstractSpinBox:disabled {{ color: {MUTED};
     background: {GROUND}; }}
 QAbstractSpinBox::up-button, QAbstractSpinBox::down-button {{ width: 0;

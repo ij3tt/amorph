@@ -33,6 +33,31 @@ ACCENT = QColor(theme.ACCENT)
 HEADER_HEIGHT = 58
 
 
+class ElidedLabel(QLabel):
+    """
+    A label of one line that shortens its text in the middle, with "…",
+    when it is too narrow for it (a long path in a header), instead of
+    pushing the widgets beside it away. With word wrap it is a plain label.
+    """
+
+    def __init__(self, text="", parent=None):
+        super().__init__(text, parent)
+        self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        self.setMinimumWidth(40)
+
+    def paintEvent(self, event):
+        if self.wordWrap():
+            super().paintEvent(event)
+            return
+        painter = QPainter(self)
+        painter.setPen(self.palette().color(self.foregroundRole()))
+        text = self.fontMetrics().elidedText(self.text(), Qt.ElideMiddle,
+                                             self.width())
+        painter.drawText(self.rect(), self.alignment() | Qt.AlignVCenter,
+                         text)
+        painter.end()
+
+
 class Screen(QWidget):
     """
     A screen of the main window: a white header with the description of
@@ -61,7 +86,7 @@ class Screen(QWidget):
         self.header_name = QLabel()
         self.header_name.setObjectName("headerName")
         self.header_name.hide()
-        self.header_text = QLabel(title)
+        self.header_text = ElidedLabel(title)
         self.header_text.setObjectName("headerText")
         self.header_text.setTextInteractionFlags(Qt.TextSelectableByMouse)
         self.header.addWidget(self.header_name)
@@ -89,6 +114,7 @@ class Screen(QWidget):
         self.header_name.setText(name or "")
         self.header_name.setVisible(bool(name))
         self.header_text.setText(text or "")
+        self.header_text.setToolTip(text or "")
 
     def add_button(self, text, slot, tip=None, kind=None):
         """
