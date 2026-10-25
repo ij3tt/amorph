@@ -342,11 +342,17 @@ static void test_peaks_windowed()
 /************************ Updates of the curves ************************/
 
 // The largest difference between a curve and the same curve computed from
-// scratch, relative to the largest value of the latter
+// scratch, relative to the largest value of the latter or to that of the
+// data (y_max), whichever is larger. The curve enters the likelihood beside
+// the data, so the scale of the data is the one that matters: while the
+// sampler explores the prior, a curve can be nearly empty, and the rounding
+// left by subtracting a tall peak is then large next to it but not next to
+// the data. (The random numbers differ between C++ libraries, so the chain
+// below reaches such states on some systems and not on others.)
 static double curve_error(const std::vector<double>& y,
-                          const std::vector<double>& full)
+                          const std::vector<double>& full, double y_max)
 {
-    double error = 0.0, scale = 0.0;
+    double error = 0.0, scale = y_max;
     for(size_t i=0; i<y.size(); ++i)
     {
         error = std::max(error, std::abs(y[i] - full[i]));
@@ -363,6 +369,7 @@ static void test_curve_updates()
     const char* data_file = "test_model_data.txt";
     const char* options_file = "test_model_options.txt";
     const char* config_file = "test_model_config.yaml";
+    double y_max = 0.0;
     {
         std::fstream fout(data_file, std::ios::out);
         fout.precision(12);
@@ -373,6 +380,7 @@ static void test_curve_updates()
             for(double c: {22.0, 35.0, 51.0})
                 y += 1000.0*std::exp(-0.5*std::pow((x - c)/0.2, 2));
             fout<<x<<' '<<y<<'\n';
+            y_max = std::max(y_max, y);
         }
         std::fstream(options_file, std::ios::out)<<"# DNest4 options\n";
         std::fstream(config_file, std::ios::out)
@@ -411,9 +419,10 @@ static void test_curve_updates()
         full.recompute_curves();
         narrow_error = std::max(narrow_error,
                                 curve_error(model.get_narrow(),
-                                            full.get_narrow()));
+                                            full.get_narrow(), y_max));
         wide_error = std::max(wide_error,
-                              curve_error(model.get_wide(), full.get_wide()));
+                              curve_error(model.get_wide(), full.get_wide(),
+                                          y_max));
         if(model.get_narrow() != full.get_narrow()
                 || model.get_wide() != full.get_wide())
             ++num_updated;
