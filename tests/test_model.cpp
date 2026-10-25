@@ -363,6 +363,11 @@ static double curve_error(const std::vector<double>& y,
     return (scale > 0.0)?(error/scale):std::numeric_limits<double>::infinity();
 }
 
+static bool is_zero(const std::vector<double>& y)
+{
+    return std::all_of(y.begin(), y.end(), [](double v) { return v == 0.0; });
+}
+
 static void test_curve_updates()
 {
     // A dataset like an XRD pattern: background, a hump and a few peaks
@@ -407,7 +412,7 @@ static void test_curve_updates()
 
     const int num_steps = 30000;
     double narrow_error = 0.0, wide_error = 0.0;
-    int num_updated = 0;
+    int num_updated = 0, num_empty = 0, num_not_zero = 0;
     for(int i=0; i<num_steps; ++i)
     {
         MyModel proposal = model;
@@ -426,6 +431,20 @@ static void test_curve_updates()
         if(model.get_narrow() != full.get_narrow()
                 || model.get_wide() != full.get_wide())
             ++num_updated;
+
+        // A curve without peaks is exactly zero, not a residue of rounding:
+        // the post-processing tells the samples without a wide component
+        // by that
+        for(int k=0; k<2; ++k)
+        {
+            const auto& y = (k == 0)?model.get_narrow():model.get_wide();
+            if(is_zero((k == 0)?full.get_narrow():full.get_wide()))
+            {
+                ++num_empty;
+                if(!is_zero(y))
+                    ++num_not_zero;
+            }
+        }
     }
 
     check(narrow_error <= 1E-9,
@@ -439,6 +458,9 @@ static void test_curve_updates()
           "the curves were updated rather than computed in full (they "
           "differed from a full computation in " + str(num_updated)
           + " steps)");
+    check(num_not_zero == 0,
+          "a curve without peaks stays exactly zero (" + str(num_not_zero)
+          + " of " + str(num_empty) + " empty curves were not)");
 
     std::remove(data_file);
     std::remove(options_file);
