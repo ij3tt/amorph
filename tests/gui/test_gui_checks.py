@@ -189,3 +189,18 @@ def test_run_button_text():
     assert S.run_button_text(11) == "Запустить 11 прогонов"
     assert S.run_button_text(21) == "Запустить 21 прогон"
     assert S.run_button_text(22) == "Запустить 22 прогона"
+
+
+def test_number_fields_show_their_values(form):
+    # The style sheet must leave the editor of a number field room for its
+    # text: once it pushed the text out of sight
+    form.show()
+    for box, text in ((form.cp1, "10"), (form.cp2, "40"), (form.nu_lo, "1"),
+                      (form.num_seeds, None)):
+        editor = box.lineEdit()
+        if text is not None:
+            assert editor.text() == text
+        assert editor.isVisible()
+        assert editor.height() >= editor.fontMetrics().height(), \
+            (editor.geometry(), box.geometry())
+        assert editor.width() > editor.fontMetrics().horizontalAdvance("00")

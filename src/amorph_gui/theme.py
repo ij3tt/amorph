@@ -153,12 +153,14 @@ QLineEdit, QAbstractSpinBox, QComboBox {{ background: {SURFACE};
     border: 1px solid {FIELD_LINE}; border-radius: 6px; padding: 6px 8px;
     font-family: {MONO_CSS}; selection-background-color: {ACCENT}; }}
 QComboBox {{ font-family: {SANS_CSS}; }}
+QAbstractSpinBox {{ min-height: 20px; }}
 QLineEdit:focus, QAbstractSpinBox:focus, QComboBox:focus {{
     border: 1px solid {ACCENT}; }}
 /* The editor inside a number field takes the look of the field, not that
    of a field of its own, which would push the text out of sight */
-QAbstractSpinBox QLineEdit, QComboBox QLineEdit {{ border: none;
-    padding: 0; margin: 0; background: transparent; }}
+QAbstractSpinBox QLineEdit, QComboBox QLineEdit,
+QLineEdit#qt_spinbox_lineedit {{ border: none; padding: 0; margin: 0;
+    background: transparent; min-height: 0; }}
 QLineEdit:disabled, QAbstractSpinBox:disabled {{ color: {MUTED};
     background: {GROUND}; }}
 QAbstractSpinBox::up-button, QAbstractSpinBox::down-button {{ width: 0;
