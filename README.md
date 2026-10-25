@@ -108,10 +108,10 @@ componentry and thus incorporation of higher 2-theta values skews measured
 results to higher measured crystallinities.
 
 Background positions. The paper uses linear fits between 10–40° 2theta
-with CuKa x-ray sources. Our calibration on the standards (below) found
-interior control points less accurate than a straight background over the
-whole data range: put `control_points` at the edges of your data instead.
-See "Recommended settings and calibration". For some analyses, typically when more data points are analysed
+with CuKa x-ray sources: the background is a straight line under the
+amorphous halo and may bend outside it. The control points therefore belong
+where the halo ends, and their choice can change the result noticeably: see
+"Recommended settings and calibration". For some analyses, typically when more data points are analysed
 (5–50 degrees 2theta) or for highly crystalline materials, the numerical
 settings of the DNest4 sampler are not optimal for obtaining useful results,
 and need to be made more conservative (making the run slower).
@@ -147,7 +147,8 @@ weight.
 A narrower range, such as `narrow_peak_nu: [1.0, 100.0]` (no profile with
 tails heavier than a Lorentzian), changes the model of the paper: report it
 along with the results. In the experiments summarised under "Recommended
-settings and calibration" this range removed the low mode in every run.
+settings and calibration" this range removed the low mode in every run on
+N3RAW and G30RAW.
 `.github/workflows/experiment.yml` compares such
 settings on these two samples.
 
@@ -158,49 +159,70 @@ the random number generator of the sampler; without it the time is used.
 Recommended settings and calibration
 ====================================
 
-Four experiments on the bundled samples (pull requests #5, #6 and #7, run by
-`.github/workflows/experiment.yml`) motivate settings that differ from the
-paper, and quantify the accuracy of the amorphous fraction. We recommend:
+The experiments on the bundled samples (pull requests #5, #6 and #7, run by
+`.github/workflows/experiment.yml`) motivate one setting that differs from
+the paper, show how much the background control points matter, and give a
+first look at the accuracy on three standards. Each material is a single
+dataset run with a few seeds: read the numbers below as what was observed on
+these samples, not as general accuracies.
 
 * `narrow_peak_nu: [1.0, 100.0]`. With ν < 1 the posterior of the fraction
   can have a second mode at or near 0 (see "The shape of the crystalline
-  peaks"); with ν ≥ 1 this mode had no weight in any of the runs. This is a
-  change to the model of the paper: report it along with the results.
-* `control_points` at the edges of the data range (e.g. `[26.0, 46.0]` for
-  data spanning 26–46° 2θ), not `[10, 40]`. Interior control points let the
-  background bend under the amorphous halo: on `N3RAW_amorph.txt` this moved
-  the fraction from 0.63 to 0.72, and on the standards (below) the
-  edges-of-data background was more accurate at both ends of the scale.
-* `max_num_narrow_peaks: 500` and `max_num_wide_peaks: 100`. Doubling the
-  caps does not change the measured fraction but roughly doubles the run
-  time. Raise them to 1000/200 only if the diagnosis (below) shows a large
-  posterior weight at the cap (say, above 20%).
+  peaks"); with ν ≥ 1 this mode had no weight in any of the runs on N3RAW
+  and G30RAW. This is a change to the model of the paper: report it along
+  with the results.
+* `control_points`: keep the background straight under the whole amorphous
+  halo, with the control points where the halo ends.
+  - If the data reach well beyond the halo on both sides, the edges of the
+    data do this. On the 90% glass standard (5–50°) control points at the
+    edges, `[5, 50]`, gave 0.83–0.84 against 0.79–0.80 with `[10, 40]`. On
+    the 0% and 50% standards the two choices differed by no more than the
+    spread between seeds, apart from one collapsed run with `[10, 40]` on
+    the 0% standard (0.33).
+  - If the data do not reach beyond the halo, no choice is safe, and the
+    result depends on it. On `N3RAW_amorph.txt` (26–46°, halo centred near
+    35°) the fraction is 0.72 with `[10, 40]` and 0.63 with `[26, 46]` (two
+    seeds each, both choices), while G30RAW does not change. The standards
+    cannot tell which is right, because their data reach much further. Measure
+    a wider range of 2θ, or quote the fraction for both choices.
+* `max_num_narrow_peaks: 500` and `max_num_wide_peaks: 100`. On the
+  standards, doubling the caps did not move the measured fraction but made
+  the runs up to twice as long. Raise them to 1000/200 if the diagnosis
+  (below) shows a large posterior weight at the cap (say, above 20%).
 
-Calibration
------------
+Standards
+---------
 
-Three of the bundled samples are standards with known glass contents. With
-the recommended settings (straight background, ν ≥ 1), four seeds and two
-caps, they measure:
+Three of the bundled samples have known glass contents: the 0% (rhyolite)
+and 90% (basalt) standards, measured over 5–50°, and the 50% one, measured
+over 10–40° with a different step. With ν ≥ 1 and the control points at the
+edges of the data (pull request #7: four seeds with each of the two caps),
+the medians of the runs were:
 
-| true fraction | measured median [range over seeds] |
-| --- | --- |
-| 0% | 0.03 [0.00 – 0.05] |
-| 50% | 0.51 [0.50 – 0.53] |
-| 90% | 0.83 [0.82 – 0.85] |
+| true fraction | measured | remarks |
+| --- | --- | --- |
+| 0% | 0.00 – 0.05 | several posteriors collapsed onto one value; up to 72% of the weight at the cap of 500 narrow peaks; 3 of the 4 runs with the cap of 1000 stopped by the time budget |
+| 50% | 0.50 – 0.53 | |
+| 90% | 0.82 – 0.85 | 3 of the 4 runs with the cap of 1000 stopped by the time budget |
 
-The method is accurate to about ±1–2 percentage points near the middle of
-the scale but biased at the ends: +3–4 points near 0% and about −7 points
-at 90%, the latter regardless of the peak cap. A piecewise-linear
-correction of the measured fraction f:
+What this shows, and what it does not:
 
-* below 0.5: f_true ≈ 0.98 f
-* above 0.5: f_true ≈ 0.50 + 1.25 (f − 0.51)
-
-For example, the unknowns `N3RAW_amorph.txt` and `G30RAW_amorph.txt`
-measure 0.63 and 0.70, which correct to about 0.65 and 0.74. The
-correction rests on three standards and four seeds: treat it as
-preliminary, and state whether a quoted fraction is measured or corrected.
+* AMORPH measures the ratio of the integrated intensities of the two
+  components (`src/amorph_stats.py`), not the mass fraction of glass. How
+  the two are related depends on the material and the instrument; the paper
+  builds a calibration curve for that. Turning a measured fraction into a
+  glass content needs standards of the same kind of material, measured on
+  the same instrument over the same range of 2θ.
+* These three standards are different materials measured over different
+  ranges, and some of their runs are not settled by the criteria below.
+  They show the size of the effect at the ends of the scale, about +3
+  points at 0% and about −7 points at 90%, but they are not a calibration
+  curve: do not correct the fractions of other samples with them. N3RAW and
+  G30RAW in particular are other materials, measured over 26–46°.
+* The spread between seeds, about ±1–2 points at 50% and 90%, is the
+  run-to-run spread of the sampler on one data file. It is neither the
+  accuracy of the method nor the reproducibility of a measurement, which
+  needs repeated measurements of the sample.
 
 Diagnosis and reporting
 -----------------------
@@ -215,9 +237,13 @@ before quoting a fraction:
 * Near 0% or 100% the sampler sometimes locks onto exactly 0 or 1; read
   fractions below ~0.05 as "approximately zero", and rerun with a second
   seed for fractions above ~0.9.
+* A run that the time budget stopped before its planned number of saves is
+  preliminary.
 
-The seed-to-seed spread of the fraction is about ±1–2 percentage points;
-quote it as the reproducibility of the method.
+Run important samples with at least two seeds, and quote the spread between
+them separately from the posterior interval: the interval is the
+uncertainty given the data, the spread the run-to-run error of the
+sampler.
 
 
 Using the source code
