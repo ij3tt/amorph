@@ -58,12 +58,12 @@ jobs:
       DATA_FILE: ${{ matrix.dataset.file }}
     steps:
       - name: Check out the tested version (for the scripts)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ env.TESTED }}
 
       - name: Check out the version to run
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ matrix.version == 'reference' && env.REFERENCE || env.TESTED }}
           path: under-test
@@ -73,7 +73,7 @@ jobs:
           bash scripts/ci/validate_run.sh under-test "${DATA_FILE}"
           "${SAVES}" "${MINUTES}" results
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: summary-${{ matrix.version }}-${{ matrix.dataset.id }}
@@ -86,9 +86,9 @@ jobs:
     if: always() && (github.event_name == 'workflow_dispatch' || github.event.label.name == 'validate')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: summary-*
           path: summaries
@@ -98,7 +98,7 @@ jobs:
           python3 scripts/ci/compare_runs.py summaries > comparison.md
           cat comparison.md >> "${GITHUB_STEP_SUMMARY}"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: comparison
           path: comparison.md
