@@ -13,12 +13,19 @@ name: Release
 # - "Run workflow" on the Actions tab is a dry run, on a branch or a tag:
 #   the same files, named after the version in CMakeLists.txt, are only
 #   uploaded as an artefact, and the notes are shown in the summary of the
-#   run.
+#   run. So is a pull request that changes the release: this workflow, its
+#   scripts or CHANGELOG.md (as for a new version).
 
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - scripts/ci/package_release.sh
+      - scripts/ci/release_notes.sh
+      - CHANGELOG.md
 
 permissions:
   contents: read

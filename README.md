@@ -459,7 +459,9 @@ version 1.2.0:
 2. Optionally, a dry run: "Run workflow" for Release on the GitHub Actions
    tab. It builds and packs everything, named after the version of
    `CMakeLists.txt`, and uploads it as the artefact `release-v1.2.0`,
-   without making a release; the summary of the run shows the notes.
+   without making a release; the summary of the run shows the notes. A
+   pull request that changes `CHANGELOG.md`, `release.yml` or its scripts
+   gets the same dry run.
 3. Tag the commit and push the tag to GitHub: `git tag v1.2.0` and
    `git push origin v1.2.0`. The workflow stops unless the tag is
    `v` and the version of `CMakeLists.txt`. It makes the GitHub Release of
