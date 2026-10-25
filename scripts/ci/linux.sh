@@ -27,7 +27,14 @@ bash scripts/smoke_test.sh build/AMORPH build/smoke
 
 # The diagnosis of the posterior, on the output of the smoke test
 python3 scripts/diagnose_posterior.py build/smoke \
-    --data build/smoke/easy_data.txt --json build/smoke/diagnosis.json
+    --data build/smoke/easy_data.txt --json build/smoke/diagnosis.json \
+    --range 10 40
+
+# The run archive that showresults.py wrote in the smoke test: print its
+# report and write its figures
+python3 src/amorph_archive.py --show build/smoke/*.amorph
+MPLBACKEND=Agg python3 src/amorph_archive.py --figures build/smoke/figures \
+    build/smoke/*.amorph
 
 # Tests of the Python post-processing
 MPLBACKEND=Agg python3 -m pytest -q tests
@@ -36,6 +43,7 @@ mkdir -p dist/linux
 cp build/AMORPH dist/linux/
 cp src/OPTIONS src/OPTIONS_AGGRESSIVE src/config.yaml dist/linux/
 cp src/showresults.py src/display.py src/dnest_functions.py \
-   src/amorph_stats.py dist/linux/
+   src/amorph_stats.py src/amorph_results.py src/amorph_archive.py \
+   dist/linux/
 cp src/easy_data.txt dist/linux/
 ls -l dist/linux

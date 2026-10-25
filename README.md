@@ -37,7 +37,10 @@ Four test datasets are stored in the repository
 (`0%glass_rhyolite_Emperyon.txt`, `50% glass .02step3secdwell.txt`,
 `90%_glass_basalt_Emperyon.txt`, and `easy_data.txt`), and two more
 samples, `G30RAW_amorph.txt` and `N3RAW_amorph.txt` (26–46°), that show
-the ambiguity described in "The shape of the crystalline peaks" below.
+the ambiguity described in "The shape of the crystalline peaks" below. The
+whole scans of these two samples (Cu Kα, 5–70°, step 0.02°) are
+`G30RAW.txt` and `N3RAW.txt`, and `*_20-50.txt` and `*_15-70.txt` are
+parts of them.
 The program is set to run until
 10,000 saved parameter sets have been generated. Outputs may be viewed at any
 point, however, closing the program before reaching  10,000 will reduce the
@@ -48,11 +51,52 @@ be viewed by running the Python script `showresults.py`:
 python showresults.py
 ```
 
-Automatically generated figures may be closed or saved. Upon closing the
-figures, numerical results will be displayed in Anaconda prompt window,
-and a CSV file of (some) output will be written to the disk.
-Important: make sure to save the results or copy the output file before
-starting another run as results will otherwise be overwritten.
+It prints the report of the run: log(Z), the information and the
+effective sample size of the sampler, the amorphous fraction and the shape
+of the wide component (mean ± standard deviation over the posterior
+samples), and the diagnosis of the posterior (see "Diagnosing the
+posterior" below). It writes `macroquantities.csv`, one row per posterior
+sample, and a run archive (below), and then shows the figures one after
+another: the levels of the sampler, the compression and acceptance of the
+levels, the likelihood and the posterior weights against log(X), the model
+with its parts and the data, the residuals, and the histograms of the
+number of narrow peaks, of the amorphous fraction and of the centre,
+half-width, skewness and nongaussianity of the wide component.
+
+### Run archives
+
+The next run overwrites the output files, which take hundreds of
+megabytes or more. `showresults.py` therefore also stores the results in
+one compressed file in the folder of the run, named after the data file and
+the time of the last save, such as `easy_data_2026-10-25_1530.amorph`. It
+is a zip file of a few megabytes with
+
+* `report.html`: the report and all the figures, for a web browser;
+* `report.txt` and `summary.json`: the report as text, and its numbers for
+  programs;
+* `input/`: `config.yaml`, the DNest4 options and the data file, and
+  `dnest4/`: `levels.txt`, `sample_info.txt` and `weights.txt`;
+* `particles.csv`: one row per saved sample, with its parameters, log
+  likelihood, posterior weight, amorphous fraction and the shape of its
+  wide component; `posterior.csv`: the same for the posterior samples;
+* `peaks.npz`: the position, log amplitude and width of every peak of
+  every saved sample;
+* `curves.npz`: the posterior mean, the 5, 16, 50, 84 and 95% quantiles and
+  50 posterior samples of the background, the wide and narrow components
+  and the model.
+
+`README.txt` in the archive describes each file. To write an archive of a
+run folder, print the report of an archive or write its figures:
+
+```
+python amorph_archive.py RUN_FOLDER [--out FILE.amorph]
+python amorph_archive.py --show FILE.amorph
+python amorph_archive.py --figures FOLDER FILE.amorph
+```
+
+In Python, `amorph_archive.read("FILE.amorph")` gives back the results of
+the run, and `amorph_results.FIGURES` draws each figure of them on a
+matplotlib figure.
 
 Checks of the input files
 =========================
@@ -159,32 +203,61 @@ the random number generator of the sampler; without it the time is used.
 Recommended settings and calibration
 ====================================
 
-The experiments on the bundled samples (pull requests #5, #6 and #7, run by
-`.github/workflows/experiment.yml`) motivate one setting that differs from
-the paper, show how much the background control points matter, and give a
-first look at the accuracy on three standards. Each material is a single
-dataset run with a few seeds: read the numbers below as what was observed on
-these samples, not as general accuracies.
+The experiments on the bundled samples (pull requests #5, #6, #7 and #10,
+run by `.github/workflows/experiment.yml`) motivate one setting that differs
+from the paper, show how much the background control points and the range of
+2θ matter, and give a first look at the accuracy on three standards. Each
+material is a single dataset run with a few seeds: read the numbers below as
+what was observed on these samples, not as general accuracies.
 
 * `narrow_peak_nu: [1.0, 100.0]`. With ν < 1 the posterior of the fraction
   can have a second mode at or near 0 (see "The shape of the crystalline
   peaks"); with ν ≥ 1 this mode had no weight in any of the runs on N3RAW
   and G30RAW. This is a change to the model of the paper: report it along
   with the results.
-* `control_points`: keep the background straight under the whole amorphous
-  halo, with the control points where the halo ends.
-  - If the data reach well beyond the halo on both sides, the edges of the
-    data do this. On the 90% glass standard (5–50°) control points at the
-    edges, `[5, 50]`, gave 0.83–0.84 against 0.79–0.80 with `[10, 40]`. On
-    the 0% and 50% standards the two choices differed by no more than the
-    spread between seeds, apart from one collapsed run with `[10, 40]` on
-    the 0% standard (0.33).
-  - If the data do not reach beyond the halo, no choice is safe, and the
-    result depends on it. On `N3RAW_amorph.txt` (26–46°, halo centred near
-    35°) the fraction is 0.72 with `[10, 40]` and 0.63 with `[26, 46]` (two
-    seeds each, both choices), while G30RAW does not change. The standards
-    cannot tell which is right, because their data reach much further. Measure
-    a wider range of 2θ, or quote the fraction for both choices.
+* `control_points`: measure, and analyse, a range of 2θ that reaches well
+  beyond the amorphous halo on both sides, and keep the background straight
+  under the whole halo, with the control points where the halo ends.
+  - With data well beyond the halo, the edges of the data do this. On the
+    90% glass standard (5–50°) control points at the edges, `[5, 50]`, gave
+    0.83–0.84 against 0.79–0.80 with `[10, 40]`. On the 0% and 50% standards
+    the two choices differed by no more than the spread between seeds, apart
+    from one collapsed run with `[10, 40]` on the 0% standard (0.33). On
+    N3RAW and G30RAW cut to 20–50° (halo near 29–40°), the background
+    straight from edge to edge, `[20, 50]`, had a log(Z) about 10 nats higher
+    than control points at `[25, 45]` on both samples, more than the 2–3
+    nats between seeds: the data favour it. log(Z) compares choices only on
+    the same data file.
+  - Without data beyond the halo the background is not pinned, and the
+    result depends on the choice. On `N3RAW_amorph.txt` (26–46°, halo
+    centred near 35°) the fraction was 0.72 with `[10, 40]` and 0.63 with
+    `[26, 46]`. The whole scan (`N3RAW.txt`, 5–70°) settled it: with the
+    background pinned by data on both sides, the fraction within 26–46° was
+    0.63–0.68 in every run, and 0.66–0.68 with the straight background over
+    20–50°. The 0.72 came from the control point at 10°, outside the data,
+    where the background was extrapolated: AMORPH warns about such a
+    control point. G30RAW gave 0.71–0.73 within 26–46° with every choice,
+    as it did on 26–46° alone.
+  - Even with data beyond the halo some choice remains. On N3RAW the
+    reasonable ones (range 20–50° or 15–70°, control points at the edges or
+    at 25° and 45°) spread the fraction within 26–46° over about 0.05, more
+    than the spread between seeds (0.01–0.02). Prefer the choice with the
+    higher log(Z), and quote the spread over the others as an uncertainty
+    of the result: for N3RAW within 26–46°, about 0.67, and 0.63–0.68 over
+    the reasonable choices.
+* The fraction depends on the range of 2θ it is integrated over: quote the
+  range with it. Make sure that `left_edge` and `right_edge` let the wide
+  peaks lie under every amorphous hump in the range. By default they cover
+  0.3–0.7 of it: on 15–70° that is 31.5–53.5°, which leaves out the second
+  hump of N3RAW and G30RAW near 60°. With `left_edge: 0.2` and
+  `right_edge: 0.95` (26–67°) the wide component took in both humps, and
+  the fraction over 15–70° was 0.66–0.67 for N3RAW and 0.74 for G30RAW,
+  against 0.65–0.66 and 0.69 over 20–50° (three of these four runs were
+  stopped by the time budget at 54–61% of their saves, so these numbers are
+  preliminary).
+* Comparing samples measured and analysed the same way is more robust than
+  any single fraction: G30RAW came out more amorphous than N3RAW by 0.04–0.08
+  with every range and choice of control points.
 * `max_num_narrow_peaks: 500` and `max_num_wide_peaks: 100`. On the
   standards, doubling the caps did not move the measured fraction but made
   the runs up to twice as long. Raise them to 1000/200 if the diagnosis
@@ -218,7 +291,7 @@ What this shows, and what it does not:
   They show the size of the effect at the ends of the scale, about +3
   points at 0% and about −7 points at 90%, but they are not a calibration
   curve: do not correct the fractions of other samples with them. N3RAW and
-  G30RAW in particular are other materials, measured over 26–46°.
+  G30RAW in particular are other materials, measured over 5–70°.
 * The spread between seeds, about ±1–2 points at 50% and 90%, is the
   run-to-run spread of the sampler on one data file. It is neither the
   accuracy of the method nor the reproducibility of a measurement, which
@@ -243,7 +316,9 @@ before quoting a fraction:
 Run important samples with at least two seeds, and quote the spread between
 them separately from the posterior interval: the interval is the
 uncertainty given the data, the spread the run-to-run error of the
-sampler.
+sampler. Quote the range of 2θ and the control points with the fraction,
+and, where the choice of them moves the fraction more than the seeds do,
+that spread too.
 
 
 Using the source code
@@ -320,7 +395,9 @@ The repository is built on two CI services, which run the same scripts from
 * GitHub Actions (`.github/workflows/build.yml`), on pushes to master and on
   pull requests: builds the Linux executable and runs the tests and the smoke
   test on it, cross-compiles `AMORPH.exe` with mingw-w64 and runs the smoke
-  test on it on a Windows runner. Both executables are uploaded as artefacts.
+  test on it on a Windows runner, and builds and tests the macOS executable
+  (Apple Silicon) on a macOS runner. The executables and the run archive of
+  the Linux smoke test, with its figures, are uploaded as artefacts.
 * GitVerse CI (`.gitverse/workflows/build.yml`), on every push: the same
   Linux build and tests, and the cross-compiled `AMORPH.exe` as an artefact
   (kept for 7 days). GitVerse has no Windows runners, so the executable is
@@ -339,13 +416,15 @@ restarts the comparison). Each sampler run stops after 5000 saves or
 what it saved by then is post-processed; the log of each run reports the
 number of saves and levels every 10 minutes.
 
-`.github/workflows/experiment.yml` runs the two ambiguous samples,
-`src/N3RAW_amorph.txt` and `src/G30RAW_amorph.txt`, with the settings listed
-in `scripts/ci/experiment_settings.json` (the maximum numbers of peaks,
-`narrow_peak_nu` and `control_points`), each with two seeds, all in
-parallel, and writes a table of how much posterior weight has an amorphous
-fraction of 0 or below 0.2. It is started the same way: "Run workflow", or
-the label `experiment` on a pull request.
+`.github/workflows/experiment.yml` runs bundled datasets with the settings
+listed in `scripts/ci/experiment_settings.json` (the maximum numbers of
+peaks, `narrow_peak_nu`, `control_points` and, optionally, other settings
+of `config.yaml`), each with several seeds, all in parallel, and writes a
+table of the amorphous fraction and of how much posterior weight has a
+fraction of 0 or below 0.2. With `"fraction_range"` it also gives the
+fraction within that range, to compare runs on different ranges of one
+scan. It is started the same way: "Run workflow", or the label
+`experiment` on a pull request.
 
 ### Diagnosing the posterior
 
@@ -365,6 +444,7 @@ weight at a low fraction, with hundreds of narrow peaks at a small ν and the
 same likelihood as the main mode, means that the data do not determine the
 fraction. `--table` writes one row per saved particle (a few hundred
 kilobytes, instead of the hundreds of megabytes of `sample.txt`).
+`--range LOW HIGH` also gives the fraction within that range of x.
 
 ### The legacy Makefile
 

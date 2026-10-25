@@ -37,22 +37,38 @@ def main():
         runs.append((setting, load(folder, "summary.json"),
                      load(folder, "diagnosis.json")))
 
-    print("## Experiment: the shape of the crystalline peaks")
+    # The fraction within a range of x, when diagnose_posterior.py gave one
+    ranges = sorted({tuple(d["fraction_in_range"]["range"])
+                     for _, _, d in runs
+                     if d is not None and "fraction_in_range" in d})
+    in_range = "fraction {0:g}–{1:g}".format(*ranges[0]) \
+        if len(ranges) == 1 else "fraction in range"
+
+    print("## Experiment")
     print()
     print("Amorphous fraction: posterior median [25%, 75%], and the posterior "
           "weight with a fraction of 0, below 0.2 and below 0.45. "
           "\"at cap\": weight with at least 90% of the maximum number of "
           "narrow peaks. nu_narrow, narrow peaks, noise nu: posterior "
           "medians.")
+    if ranges:
+        print("\"{0}\": the same within that range of x only, to compare "
+              "runs on different ranges of the same measurement.".format(
+                  in_range))
     print()
+
+    def interval(f):
+        return "{0:.3f} [{1:.3f}, {2:.3f}]".format(f["q50"], f["q25"],
+                                                   f["q75"])
 
     for data in sorted({s["data"] for s, _, _ in runs}):
         print("### " + data)
         print()
-        print("| setting | peaks | nu_narrow range | control points | seed "
-              "| fraction | = 0 | < 0.2 | < 0.45 | at cap | nu_narrow "
-              "| narrow peaks | noise nu | saves | minutes |")
-        print("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+        print("| setting | peaks | nu_narrow range | control points | other "
+              "| seed | fraction | " + (in_range + " | " if ranges else "")
+              + "= 0 | < 0.2 | < 0.45 | at cap | nu_narrow | narrow peaks "
+              "| noise nu | saves | minutes |")
+        print("|---" * (16 + bool(ranges)) + "|")
         for s, summary, d in sorted(
                 (r for r in runs if r[0]["data"] == data),
                 key=lambda r: (r[0]["setting"], r[0]["seed"])):
@@ -60,14 +76,15 @@ def main():
                    "{0}/{1}".format(s["max_num_narrow_peaks"],
                                     s["max_num_wide_peaks"]),
                    s["narrow_peak_nu"], s.get("control_points", "-"),
-                   str(s["seed"])]
+                   s.get("config") or "-", str(s["seed"])]
             if d is None:
-                row += ["run failed"] + ["-"] * 9
+                row += ["run failed"] + ["-"] * (9 + bool(ranges))
             else:
-                f = d["fraction"]
-                row += ["{0:.3f} [{1:.3f}, {2:.3f}]".format(f["q50"], f["q25"],
-                                                           f["q75"]),
-                        percent(d["weight_fraction_0"]),
+                row.append(interval(d["fraction"]))
+                if ranges:
+                    row.append(interval(d["fraction_in_range"])
+                               if "fraction_in_range" in d else "-")
+                row += [percent(d["weight_fraction_0"]),
                         percent(d["weight_fraction_below_0.2"]),
                         percent(d["weight_fraction_below_0.45"]),
                         percent(d["weight_narrow_at_cap"]),

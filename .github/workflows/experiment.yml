@@ -1,13 +1,14 @@
 name: Experiment
 
-# Runs the samples whose amorphous fraction can be ambiguous
-# (src/N3RAW_amorph.txt, src/G30RAW_amorph.txt; see "The shape of the
-# crystalline peaks" in README.md) with the settings listed in
+# Runs bundled datasets with the settings listed in
 # scripts/ci/experiment_settings.json: for each setting the maximum numbers
-# of narrow and wide peaks, the range of nu of the narrow peaks and the
-# background control points. Each setting runs on each dataset of that file
-# for each replicate, with its own seed, and scripts/diagnose_posterior.py
-# summarises every run. The runs take hours, so this runs on demand only:
+# of narrow and wide peaks, the range of nu of the narrow peaks, the
+# background control points and, optionally, other settings of config.yaml
+# ("config": "left_edge=0.2 right_edge=0.95"). Each setting runs on its own
+# "datasets", or else on the "dataset" list of the file, for each replicate,
+# with its own seed, and scripts/diagnose_posterior.py summarises every run;
+# with "fraction_range": "LOW HIGH" it also gives the amorphous fraction
+# within that range. The runs take hours, so this runs on demand only:
 # "Run workflow" on the Actions tab, or the label "experiment" on a pull
 # request.
 
@@ -38,12 +39,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # One entry of the matrix per setting, dataset and replicate
       - name: Read scripts/ci/experiment_settings.json
         id: read
         run: |
           jq . scripts/ci/experiment_settings.json
-          echo "matrix=$(jq -c . scripts/ci/experiment_settings.json)" \
-              >> "${GITHUB_OUTPUT}"
+          matrix=$(jq -c '. as $top | {include: [
+              .setting[] as $s | ($s.datasets // $top.dataset)[] as $d
+              | $top.replicate[] as $r
+              | {setting: $s, dataset: $d, replicate: $r,
+                 fraction_range: ($top.fraction_range // "")}]}' \
+              scripts/ci/experiment_settings.json)
+          echo "matrix=${matrix}" >> "${GITHUB_OUTPUT}"
 
   run:
     name: ${{ matrix.setting.id }} / ${{ matrix.dataset }} / seed ${{ matrix.replicate }}
@@ -63,6 +70,8 @@ jobs:
       WIDE: ${{ matrix.setting.wide }}
       NU: ${{ matrix.setting.nu }}
       CONTROL: ${{ matrix.setting.control_points }}
+      CONFIG: ${{ matrix.setting.config }}
+      RANGE: ${{ matrix.fraction_range }}
       # Different for each replicate and each run of the workflow
       SEED: ${{ github.run_number }}0${{ matrix.replicate }}
     steps:
@@ -74,14 +83,14 @@ jobs:
               "${MINUTES}" results \
               "max_num_narrow_peaks=${NARROW}" "max_num_wide_peaks=${WIDE}" \
               "narrow_peak_nu=${NU}" "control_points=${CONTROL}" \
-              "seed=${SEED}"
+              "seed=${SEED}" ${CONFIG}
           build/venv/bin/python scripts/diagnose_posterior.py build/run \
               --data "build/run/${DATA_FILE}" \
               --json results/diagnosis.json \
-              --table results/particles.csv.gz
-          printf '{"setting": "%s", "data": "%s", "seed": %s, "max_num_narrow_peaks": %s, "max_num_wide_peaks": %s, "narrow_peak_nu": "%s", "control_points": "%s"}\n' \
+              --table results/particles.csv.gz ${RANGE:+--range ${RANGE}}
+          printf '{"setting": "%s", "data": "%s", "seed": %s, "max_num_narrow_peaks": %s, "max_num_wide_peaks": %s, "narrow_peak_nu": "%s", "control_points": "%s", "config": "%s"}\n' \
               "${SETTING}" "${DATA_FILE}" "${SEED}" "${NARROW}" "${WIDE}" \
-              "${NU}" "${CONTROL}" > results/setting.json
+              "${NU}" "${CONTROL}" "${CONFIG}" > results/setting.json
 
       - uses: actions/upload-artifact@v4
         if: always()

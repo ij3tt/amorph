@@ -6,9 +6,11 @@ Run it in the folder holding the output of the sampler (sample.txt,
 sample_info.txt, levels.txt), also when the sampler was stopped part-way.
 It does the DNest4 post-processing, which writes posterior_sample.txt, and
 stores posterior summaries of the noise parameters and of the quantities
-that display.py reports in a JSON file.
+that display.py reports in a JSON file. With --archive it also writes a run
+archive (src/amorph_archive.py) with the whole report and figures.
 
     python summarize_run.py --data easy_data.txt --out summary.json
+    python summarize_run.py --data easy_data.txt --out summary.json --archive run.amorph
 """
 
 import argparse
@@ -20,6 +22,8 @@ import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "..", "src"))
+import amorph_archive
+import amorph_results
 import amorph_stats
 import dnest_functions as dn4
 
@@ -37,61 +41,6 @@ def summary(values):
             "mean": float(v.mean()), "n": int(v.size)}
 
 
-def complete_lines(lines, num_values):
-    """
-    The data lines (not comments) that were written completely: they end
-    with a newline and hold num_values values.
-    """
-    return [l for l in lines if not l.startswith("#")
-            and l.endswith("\n") and len(l.split()) == num_values]
-
-
-def trim_outputs():
-    """
-    Make the output of a sampler that was stopped part-way consistent. Each
-    save appends a line to sample.txt and then one to sample_info.txt, so
-    the last of them may be cut off or missing: keep the samples that are
-    complete in both files. levels.txt is rewritten at every save, so its
-    last line may be cut off too. Returns the number of samples kept.
-    """
-    with open("levels.txt") as f:
-        lines = f.readlines()
-    levels = complete_lines(lines, 7)
-    if not levels:
-        raise SystemExit("levels.txt holds no complete levels")
-    with open("levels.txt", "w") as f:
-        f.writelines([l for l in lines if l.startswith("#")] + levels)
-
-    with open("sample_info.txt") as f:
-        lines = f.readlines()
-    header = [l for l in lines if l.startswith("#")]
-    info = complete_lines(lines, 4)
-
-    # Where the complete lines of sample.txt end. They hold as many values
-    # (each followed by a space) as the first one.
-    ends = []
-    num_values = None
-    offset = 0
-    with open("sample.txt", "rb") as f:
-        for line in f:
-            offset += len(line)
-            if line.startswith(b"#"):
-                continue
-            if num_values is None:
-                num_values = line.count(b" ")
-            if not line.endswith(b"\n") or line.count(b" ") != num_values:
-                break
-            ends.append(offset)
-
-    keep = min(len(info), len(ends))
-    if keep == 0:
-        raise SystemExit("The sampler saved no complete samples")
-    with open("sample_info.txt", "w") as f:
-        f.writelines(header + info[:keep])
-    os.truncate("sample.txt", ends[keep - 1])
-    return keep
-
-
 def main():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -102,9 +51,10 @@ def main():
                    help="run time of the sampler, for the record")
     p.add_argument("--stopped", action="store_true",
                    help="the sampler was stopped before it finished")
+    p.add_argument("--archive", help="also write a run archive (.amorph)")
     args = p.parse_args()
 
-    saves = trim_outputs()
+    saves = amorph_stats.trim_outputs()
     # Seed the random resampling, as showresults.py does
     np.random.seed(amorph_stats.postprocessing_seed("config.yaml"))
     logz, information, _ = dn4.postprocess(plot=False)
@@ -149,6 +99,10 @@ def main():
 
     with open(args.out, "w") as fout:
         json.dump(result, fout, indent=2)
+
+    if args.archive:
+        amorph_archive.write(amorph_results.from_run(".", data_file=args.data),
+                             args.archive)
 
 
 if __name__ == "__main__":
