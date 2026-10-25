@@ -136,7 +136,13 @@ def test_load_data_reads_the_bundled_datasets():
                 "50% glass .02step3secdwell.txt": (1501, 10.0, 40.0),
                 "90%_glass_basalt_Emperyon.txt": (1731, 5.01313028, 49.99313028),
                 "easy_data.txt": (1001, 0.0, 50.0),
+                "G30RAW.txt": (3251, 5.0, 70.0),
+                "G30RAW_15-70.txt": (2751, 15.0, 70.0),
+                "G30RAW_20-50.txt": (1501, 20.0, 50.0),
                 "G30RAW_amorph.txt": (1001, 26.0, 46.0),
+                "N3RAW.txt": (3251, 5.0, 70.0),
+                "N3RAW_15-70.txt": (2751, 15.0, 70.0),
+                "N3RAW_20-50.txt": (1501, 20.0, 50.0),
                 "N3RAW_amorph.txt": (1001, 26.0, 46.0)}
     for name, (n, x_min, x_max) in datasets.items():
         x, _ = amorph_stats.load_data(os.path.join(ROOT, "src", name))
