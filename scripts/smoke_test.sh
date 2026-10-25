@@ -100,6 +100,18 @@ if ! grep -q "AMORPH: error: .*no_such_file\.txt" "${BAD}/stderr.txt"; then
 fi
 echo "smoke_test: missing data file rejected OK"
 
+# Whatever happens next, the first line of the output names the version of
+# AMORPH that CMakeLists.txt gives (with CR LF line ends on Windows)
+VERSION="$(sed -n 's/^project(AMORPH VERSION \([0-9.]*\).*/\1/p' \
+           "${REPO_ROOT}/CMakeLists.txt")"
+first="$(head -n 1 "${BAD}/stdout.txt" | tr -d '\r')"
+if [ "${first}" != "# AMORPH ${VERSION}" ]; then
+    echo "smoke_test: FAILED - the first line of the output is" \
+         "'${first}', expected '# AMORPH ${VERSION}'" >&2
+    exit 1
+fi
+echo "smoke_test: version ${VERSION} OK"
+
 cd "${WORK}"
 
 echo "smoke_test: running the sampler..."

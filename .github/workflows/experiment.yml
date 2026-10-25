@@ -37,7 +37,7 @@ jobs:
     outputs:
       matrix: ${{ steps.read.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # One entry of the matrix per setting, dataset and replicate
       - name: Read scripts/ci/experiment_settings.json
@@ -75,7 +75,7 @@ jobs:
       # Different for each replicate and each run of the workflow
       SEED: ${{ github.run_number }}0${{ matrix.replicate }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Run AMORPH and diagnose the posterior
         run: |
@@ -92,7 +92,7 @@ jobs:
               "${SETTING}" "${DATA_FILE}" "${SEED}" "${NARROW}" "${WIDE}" \
               "${NU}" "${CONTROL}" "${CONFIG}" > results/setting.json
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: experiment-${{ matrix.setting.id }}-${{ matrix.dataset }}-${{ matrix.replicate }}
@@ -105,9 +105,9 @@ jobs:
     if: always() && (github.event_name == 'workflow_dispatch' || github.event.label.name == 'experiment')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: experiment-*
           path: runs
@@ -117,7 +117,7 @@ jobs:
           python3 scripts/ci/compare_experiment.py runs > experiment.md
           cat experiment.md >> "${GITHUB_STEP_SUMMARY}"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: experiment-summary
           path: experiment.md

@@ -19,6 +19,11 @@
 #include <windows.h>
 #endif
 
+// CMakeLists.txt defines it; the legacy src/Makefile does not
+#ifndef AMORPH_VERSION
+#define AMORPH_VERSION "unknown"
+#endif
+
 using namespace AMORPH;
 
 // Load the inputs and run the sampler. Invalid inputs throw exceptions.
@@ -65,6 +70,10 @@ static void wait_if_own_console()
 
 int main()
 {
+    // The first line of the output, so that the log of a run says which
+    // version made it
+    std::cout<<"# AMORPH "<<AMORPH_VERSION<<std::endl;
+
     try
     {
         run();
