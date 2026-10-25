@@ -52,7 +52,9 @@ summary.json    the numbers of the report: the data, the settings, the
                 sampler (log(Z), information, effective sample size), the
                 posterior mean, standard deviation and quantiles of each
                 quantity, and the diagnosis of the posterior
-manifest.json   when and with what software the archive was written
+manifest.json   when and with what software the archive was written: the
+                version of AMORPH that wrote it ("amorph") and, when the
+                output of the sampler was kept, of the sampler ("sampler")
 input/          config.yaml, the DNest4 options file and the data file
 dnest4/         levels.txt, sample_info.txt and weights.txt of the sampler
 log/            the output of the sampler, where it was kept
@@ -159,6 +161,20 @@ def html_report(results):
     return "\n".join(parts)
 
 
+def sampler_version(results):
+    """
+    {"sampler": version} from the first line of the output of the sampler
+    ("# AMORPH 1.0.0"), when the archive keeps it; else {}.
+    """
+    log = results.attachments.get("log/run.log")
+    if log:
+        words = log.decode("utf-8", errors="replace").split("\n", 1)[0] \
+            .split()
+        if words[:2] == ["#", "AMORPH"] and len(words) == 3:
+            return {"sampler": words[2]}
+    return {}
+
+
 def write(results, filename):
     """
     Write the results of a run to the archive filename.
@@ -192,15 +208,17 @@ def write(results, filename):
     curves["x"], curves["y"] = results.x, results.y
     files["curves.npz"] = _npz(curves)
 
+    software = {"amorph": amorph_results.AMORPH_VERSION}
+    software.update(sampler_version(results))
+    software.update(python=platform.python_version(), numpy=np.__version__,
+                    pandas=pd.__version__, system=platform.platform())
     manifest = {
         "format": FORMAT,
         "version": FORMAT_VERSION,
         "created": datetime.datetime.now().astimezone().isoformat(
             timespec="seconds"),
         "data_file": results.info["data_file"],
-        "software": {"python": platform.python_version(),
-                     "numpy": np.__version__, "pandas": pd.__version__,
-                     "system": platform.platform()},
+        "software": software,
         "files": sorted(files) + ["manifest.json"],
     }
     files["manifest.json"] = json.dumps(manifest, indent=2)
