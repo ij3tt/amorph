@@ -1,17 +1,19 @@
 """
 The screen «Результаты»: the results of one run, from its folder after the
 post-processing or from an archive. The tabs show the fraction with its
-intervals and the diagnostic cards, the figures of amorph_results.FIGURES
-and the whole report; the header exports the figures, the archive and the
+intervals, the diagnostic cards, the decomposition of the scan and the
+distribution of the fraction; the figures of amorph_results.FIGURES; and
+the whole report. The header exports the figures, the archive and the
 posterior samples.
 """
 
 import os
 import shutil
 
+import numpy as np
+import pyqtgraph as pg
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFontDatabase
-from PySide6.QtWidgets import (QFileDialog, QGridLayout, QLabel,
+from PySide6.QtWidgets import (QFileDialog, QGridLayout, QHBoxLayout, QLabel,
                                QPlainTextEdit, QScrollArea, QTabWidget,
                                QVBoxLayout, QWidget)
 
@@ -20,8 +22,9 @@ import amorph_results
 
 from amorph_gui import digest
 from amorph_gui import strings as S
-from amorph_gui.widgets import (COLORS, Card, FigureView, IntervalBar, Screen,
-                                bold)
+from amorph_gui import theme
+from amorph_gui.widgets import (Banner, Card, FigureView, IntervalBar, Screen,
+                                card, styled_label)
 
 # The figures of each tab, by their names in amorph_results.FIGURES
 MODEL_FIGURES = ["model", "residuals"]
@@ -38,13 +41,18 @@ def _scroll(widget):
     return scroll
 
 
+def _page():
+    page = QWidget()
+    layout = QVBoxLayout(page)
+    layout.setContentsMargins(0, 16, 4, 8)
+    layout.setSpacing(16)
+    return page, layout
+
+
 def _note(text, level="info"):
-    fg, bg = COLORS[level]
-    label = QLabel(text)
-    label.setWordWrap(True)
-    label.setStyleSheet("QLabel {{ color: {0}; background: {1}; "
-                        "border-radius: 4px; padding: 8px; }}".format(fg, bg))
-    return label
+    banner = Banner()
+    banner.show_message(text, level)
+    return banner
 
 
 class ResultsScreen(Screen):
@@ -62,6 +70,7 @@ class ResultsScreen(Screen):
         self.stopped = False
         self.figure_views = {}
         self._builders = {}
+        self.set_header("", S.NO_RESULTS)
 
         self.export_buttons = [
             self.add_button(S.SAVE_ARCHIVE, self.save_archive,
@@ -73,11 +82,8 @@ class ResultsScreen(Screen):
         for button in self.export_buttons:
             button.setEnabled(False)
 
-        self.subtitle = QLabel(S.NO_RESULTS)
-        self.subtitle.setWordWrap(True)
-        self.subtitle.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        self.body.addWidget(self.subtitle)
         self.tabs = QTabWidget()
+        self.tabs.setDocumentMode(True)
         self.tabs.currentChanged.connect(self._build_tab)
         self.tabs.hide()
         self.body.addWidget(self.tabs, 1)
@@ -93,9 +99,9 @@ class ResultsScreen(Screen):
         self.stopped = stopped
         self.figure_views = {}
         seed = digest.run_config(results).get("seed")
-        self.subtitle.setText(S.RESULTS_TITLE.format(
-            data=results.info.get("data_file", S.UNKNOWN),
-            seed=S.NO_SEED if seed is None else seed, source=source))
+        self.set_header(results.info.get("data_file", S.UNKNOWN),
+                        "seed {0} · {1}".format(
+                            S.NO_SEED if seed is None else seed, source))
         for button in self.export_buttons:
             button.setEnabled(True)
 
@@ -125,53 +131,136 @@ class ResultsScreen(Screen):
         if build is not None:
             self.tabs.widget(index).layout().addWidget(build())
 
-    # ----------------------------------------------------------------- tabs
+    # -------------------------------------------------------------- Итог
 
     def _summary(self):
         r = self.results
-        page = QWidget()
-        layout = QVBoxLayout(page)
-        layout.setContentsMargins(4, 8, 12, 8)
         d = r.diagnosis
+        cards = digest.diagnostic_cards(r, self.stopped)
+        page, layout = _page()
+
+        top = QHBoxLayout()
+        top.setSpacing(16)
+        badge = None
+        if any(level == digest.RED for level, _, _ in cards):
+            badge = styled_label(S.UNRELIABLE, "badge", wrap=False)
+        fraction_card, column = card(S.FRACTION_TITLE, badge)
         if d is None:
-            layout.addWidget(_note(S.NO_DIAGNOSIS, "warning"))
+            column.addWidget(_note(S.NO_DIAGNOSIS, "warning"))
         else:
             f = d["fraction"]
-            layout.addWidget(bold(QLabel(S.FRACTION_TITLE)))
-            value = bold(QLabel("{0:.3f}".format(f["q50"])), 2.6)
+            value = QLabel("{0:.3f}".format(f["q50"]))
             value.setObjectName("fraction")
-            layout.addWidget(value)
-            layout.addWidget(QLabel(S.FRACTION_INTERVALS.format(
-                f["q25"], f["q75"], f["q05"], f["q95"])))
-            bar = IntervalBar([f["q05"], f["q25"], f["q50"], f["q75"],
-                               f["q95"]])
-            bar.setMaximumWidth(560)
-            layout.addWidget(bar)
+            column.addWidget(value)
+            intervals = QLabel(S.FRACTION_INTERVALS.format(
+                f["q25"], f["q75"], f["q05"], f["q95"]))
+            intervals.setObjectName("mono")
+            intervals.setWordWrap(True)
+            column.addWidget(intervals)
+            column.addWidget(IntervalBar([f["q05"], f["q25"], f["q50"],
+                                          f["q75"], f["q95"]]))
             p = d.get("fraction_in_range")
             if p and p.get("range"):
-                layout.addWidget(QLabel(S.FRACTION_IN_RANGE.format(
+                column.addWidget(styled_label(S.FRACTION_IN_RANGE.format(
                     p["range"][0], p["range"][1], p["q50"], p["q25"],
-                    p["q75"])))
+                    p["q75"]), "mono"))
+        column.addWidget(styled_label(S.NOTE_FRACTION, "muted"))
+        column.addStretch(1)
+        top.addWidget(fraction_card, 2)
 
-        cards = digest.diagnostic_cards(r, self.stopped)
-        if cards:
-            grid = QGridLayout()
-            grid.setSpacing(8)
-            for i, (level, title, text) in enumerate(cards):
-                grid.addWidget(Card(level, title, text), i // 2, i % 2)
-            layout.addSpacing(8)
-            layout.addLayout(grid)
-
+        diagnosis_card, column = card(S.DIAGNOSIS_TITLE, spacing=8)
+        for level, title, text in cards:
+            column.addWidget(Card(level, title, text))
         if d is not None:
             posterior = len(r.posterior) if r.posterior is not None else 0
-            layout.addWidget(QLabel(S.ESS.format(
-                d["effective_sample_size"], d["saves"], posterior)))
+            column.addWidget(styled_label(S.ESS.format(
+                d["effective_sample_size"], d["saves"], posterior), "muted"))
+        column.addWidget(styled_label(S.NOTE_SEEDS, "muted"))
+        column.addStretch(1)
+        top.addWidget(diagnosis_card, 3)
+        layout.addLayout(top)
+
+        plots = QHBoxLayout()
+        plots.setSpacing(16)
+        decomposition = self._decomposition()
+        if decomposition is not None:
+            plots.addWidget(decomposition, 3)
+        histogram = self._histogram()
+        if histogram is not None:
+            plots.addWidget(histogram, 2)
+        if decomposition is not None or histogram is not None:
+            layout.addLayout(plots)
+
         layout.addWidget(self._settings_label())
-        layout.addSpacing(8)
-        layout.addWidget(_note(S.NOTE_FRACTION))
-        layout.addWidget(_note(S.NOTE_SEEDS))
         layout.addStretch(1)
         return _scroll(page)
+
+    def _decomposition(self):
+        """
+        The scan, the background, and the amorphous and crystalline parts on
+        top of it: the posterior means of the curves.
+        """
+        c = self.results.curves or {}
+        if not all(k in c for k in ("bg_mean", "wide_mean", "narrow_mean")):
+            return None
+        x = np.asarray(self.results.x, dtype=float)
+        bg = np.asarray(c["bg_mean"], dtype=float)
+        wide = bg + np.asarray(c["wide_mean"], dtype=float)
+        top = wide + np.asarray(c["narrow_mean"], dtype=float)
+        legend = QLabel(theme.swatches([
+            ("line", theme.DATA, S.LEGEND_DATA),
+            ("dash", theme.BACKGROUND, S.LEGEND_BACKGROUND),
+            ("box", theme.WIDE_FILL, S.LEGEND_WIDE_PART),
+            ("box", theme.NARROW_FILL, S.LEGEND_NARROW_PART)]))
+        legend.setTextFormat(Qt.RichText)
+        legend.setObjectName("muted")
+        frame, layout = card(S.DECOMPOSITION_TITLE)
+        layout.addWidget(legend)
+        plot = pg.PlotWidget()
+        item = theme.style_plot(plot, S.AXIS_X, S.AXIS_Y)
+        base = item.plot(x, bg, pen=pg.mkPen(theme.BACKGROUND, width=1.5,
+                                             style=Qt.DashLine))
+        wide_line = item.plot(x, wide, pen=pg.mkPen(theme.WIDE, width=2))
+        top_line = item.plot(x, top, pen=pg.mkPen(None))
+        item.addItem(pg.FillBetweenItem(base, wide_line, brush=pg.mkBrush(
+            theme.qcolor(theme.WIDE_FILL, 150))))
+        item.addItem(pg.FillBetweenItem(wide_line, top_line, brush=pg.mkBrush(
+            theme.qcolor(theme.NARROW_FILL, 170))))
+        item.plot(x, self.results.y, pen=pg.mkPen(theme.DATA, width=1))
+        item.setXRange(float(x[0]), float(x[-1]), padding=0.01)
+        plot.setMinimumHeight(280)
+        layout.addWidget(plot, 1)
+        return frame
+
+    def _histogram(self):
+        """
+        The distribution of the fraction over the saved particles, weighted
+        (the histogram of the diagnosis); the weight below 0.2 in orange.
+        """
+        d = self.results.diagnosis
+        if d is None or "histogram" not in d:
+            return None
+        edges = np.asarray(d["histogram"]["edges"], dtype=float)
+        weights = np.asarray(d["histogram"]["weights"], dtype=float)
+        if weights.size == 0 or weights.max() <= 0.0:
+            return None
+        frame, layout = card(S.HISTOGRAM_TITLE)
+        plot = pg.PlotWidget()
+        item = theme.style_plot(plot, S.FRACTION_TITLE)
+        width = np.diff(edges)
+        low = edges[:-1] < 0.2
+        for mask, color in ((low, theme.NARROW), (~low, theme.WIDE)):
+            if mask.any():
+                item.addItem(pg.BarGraphItem(
+                    x0=edges[:-1][mask] + 0.05 * width[mask],
+                    width=0.9 * width[mask], height=weights[mask],
+                    brush=pg.mkBrush(color), pen=pg.mkPen(None)))
+        item.setXRange(0.0, 1.0, padding=0.02)
+        item.getAxis("left").setStyle(showValues=False)
+        plot.setMinimumHeight(280)
+        layout.addWidget(plot, 1)
+        layout.addWidget(styled_label(S.HISTOGRAM_NOTE, "muted"))
+        return frame
 
     def _settings_label(self):
         r = self.results
@@ -185,7 +274,7 @@ class ResultsScreen(Screen):
             return S.UNKNOWN
 
         info = r.info
-        label = QLabel(S.SETTINGS_SUMMARY + ": " + S.SETTINGS_LINE.format(
+        return styled_label(S.SETTINGS_SUMMARY + ": " + S.SETTINGS_LINE.format(
             data=info.get("data_file", S.UNKNOWN),
             n=info.get("num_points", S.UNKNOWN),
             lo=info.get("x_min", float("nan")),
@@ -196,22 +285,19 @@ class ResultsScreen(Screen):
             caps="{0}/{1}".format(a.get("max_num_narrow_peaks", S.UNKNOWN),
                                   a.get("max_num_wide_peaks", S.UNKNOWN)),
             nu=pair("narrow_peak_nu", [0.1, 100.0]),
-            options=c.get("dnest4_options_file", S.UNKNOWN)))
-        label.setWordWrap(True)
-        label.setStyleSheet("color: #455a64")
-        return label
+            options=c.get("dnest4_options_file", S.UNKNOWN)), "muted")
+
+    # ------------------------------------------------------ the other tabs
 
     def _figures(self, names, columns=1, size=(9.0, 4.6), before=None):
         r = self.results
         available = {name: (title, draw) for name, title, draw
                      in amorph_results.available_figures(r)}
-        page = QWidget()
-        layout = QVBoxLayout(page)
-        layout.setContentsMargins(4, 8, 12, 8)
+        page, layout = _page()
         if before is not None:
             layout.addWidget(before)
         grid = QGridLayout()
-        grid.setSpacing(10)
+        grid.setSpacing(16)
         shown = 0
         for name in names:
             if name not in available:
@@ -224,7 +310,7 @@ class ResultsScreen(Screen):
             shown += 1
         layout.addLayout(grid)
         if shown == 0:
-            layout.addWidget(QLabel(S.NO_FIGURES))
+            layout.addWidget(styled_label(S.NO_FIGURES, "muted"))
         layout.addStretch(1)
         return _scroll(page)
 
@@ -239,19 +325,27 @@ class ResultsScreen(Screen):
         if s is None:
             numbers = _note(S.NO_SAMPLER, "warning")
         else:
-            numbers = bold(QLabel(S.SAMPLER_NUMBERS.format(
-                s["log_z"], s["information"], s["effective_sample_size"])))
-            numbers.setObjectName("sampler_numbers")
+            numbers, layout = card()
+            label = QLabel(S.SAMPLER_NUMBERS.format(
+                s["log_z"], s["information"], s["effective_sample_size"]))
+            label.setObjectName("sampler_numbers")
+            label.setFont(theme.mono(10.5))
+            label.setWordWrap(True)
+            layout.addWidget(label)
         return self._figures(SAMPLER_FIGURES, before=numbers)
 
     def _report(self):
         text = QPlainTextEdit()
         text.setReadOnly(True)
         text.setLineWrapMode(QPlainTextEdit.NoWrap)
-        text.setFont(QFontDatabase.systemFont(QFontDatabase.FixedFont))
+        text.setFont(theme.mono(9.5))
         text.setPlainText("\n".join(amorph_results.report_lines(self.results)))
         text.setObjectName("report")
-        return text
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 16, 0, 0)
+        layout.addWidget(text)
+        return page
 
     # --------------------------------------------------------------- export
 

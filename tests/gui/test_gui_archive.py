@@ -141,7 +141,7 @@ def test_results_of_a_folder_are_archived_on_export(window, qtbot,
 class FakeResults(object):
 
     def __init__(self, below=0.0, at_cap=0.0, cps=(34.0, 45.0), saves=100,
-                 planned=100):
+                 planned=100, ess=None):
         options = "# options\n" + "1\n" * 7 + "{0}\n".format(planned) + \
             "sample.txt\nsample_info.txt\nlevels.txt\n"
         self.info = {"x_min": 33.0, "x_max": 46.0, "num_saves": saves,
@@ -152,6 +152,8 @@ class FakeResults(object):
         self.diagnosis = {"weight_fraction_below_0.2": below,
                           "weight_narrow_at_cap": at_cap,
                           "max_num_narrow_peaks": 500, "saves": saves}
+        if ess is not None:
+            self.diagnosis["effective_sample_size"] = ess
 
 
 def levels(results, stopped=False):
@@ -180,4 +182,17 @@ def test_cards_without_the_settings(archives):
     results = amorph_archive.read(archives["plain"])
     titles = [title for _, title, _ in digest.diagnostic_cards(results)]
     assert S.CARD_CP_TITLE not in titles
-    assert len(titles) == 2
+    # The fraction below 0.2, the cap, the effective sample size
+    assert len(titles) == 3
+    assert titles[2] == S.CARD_ESS_TITLE.format(
+        results.diagnosis["effective_sample_size"])
+
+
+def test_effective_sample_size_card():
+    # Without the number in the diagnosis, no card
+    assert len(levels(FakeResults())) == 4
+    assert levels(FakeResults(ess=1.0))[4] == digest.RED
+    assert levels(FakeResults(ess=digest.ESS_BAD - 0.5))[4] == digest.RED
+    assert levels(FakeResults(ess=digest.ESS_BAD))[4] == digest.AMBER
+    assert levels(FakeResults(ess=digest.ESS_LOW - 1))[4] == digest.AMBER
+    assert levels(FakeResults(ess=digest.ESS_LOW))[4] == digest.OK

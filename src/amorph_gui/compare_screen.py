@@ -19,7 +19,8 @@ import amorph_archive
 
 from amorph_gui import digest
 from amorph_gui import strings as S
-from amorph_gui.widgets import Screen, paint_interval
+from amorph_gui import theme
+from amorph_gui.widgets import Screen, card, paint_interval
 
 COLUMNS = [S.COLUMN_ARCHIVE, S.COLUMN_DATA, S.COLUMN_SETTINGS, S.COLUMN_SEED,
            S.COLUMN_FRACTION, None, S.COLUMN_LOW, S.COLUMN_CAP]
@@ -167,11 +168,13 @@ class CompareScreen(Screen):
         self.add_button(S.EXPORT_CSV, self.export_csv_dialog)
         self.add_button(S.EXPORT_MARKDOWN, self.export_markdown_dialog)
 
-        hint = QLabel(S.COMPARE_HINT)
-        hint.setWordWrap(True)
-        self.body.addWidget(hint)
+        self.set_header("", S.COMPARE_HINT)
+        self.header_text.setWordWrap(True)
+        table_card, table_layout = card(S.TABLE_TITLE)
         self.model = ComparisonModel(self)
         self.view = QTableView()
+        self.view.setShowGrid(False)
+        self.view.verticalHeader().setDefaultSectionSize(40)
         self.view.setModel(self.model)
         self.view.setItemDelegateForColumn(INTERVAL_COLUMN,
                                            IntervalDelegate(self.view))
@@ -183,15 +186,35 @@ class CompareScreen(Screen):
         for i in range(len(COLUMNS)):
             header.setSectionResizeMode(i, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(2, QHeaderView.Stretch)
+        header.setSectionResizeMode(0, QHeaderView.Stretch)
+        self.view.setTextElideMode(Qt.ElideMiddle)
         header.setSectionResizeMode(INTERVAL_COLUMN, QHeaderView.Fixed)
         header.resizeSection(INTERVAL_COLUMN, 220)
         self.view.doubleClicked.connect(self._double_clicked)
-        self.body.addWidget(self.view, 1)
+        table_layout.addWidget(self.view, 1)
         self.errors = QLabel()
-        self.errors.setStyleSheet("color: #b71c1c")
+        self.errors.setStyleSheet("color: {0}".format(theme.RED))
         self.errors.setWordWrap(True)
         self.errors.hide()
-        self.body.addWidget(self.errors)
+        table_layout.addWidget(self.errors)
+        self.body.addWidget(table_card, 1)
+
+        # What the table shows: the spread of the seeds against that of the
+        # settings
+        summary_card, summary_layout = card(S.SUMMARY_TITLE)
+        self.summary = QLabel()
+        self.summary.setWordWrap(True)
+        self.summary.setObjectName("summary")
+        summary_layout.addWidget(self.summary)
+        self.body.addWidget(summary_card)
+        self.model.rowsInserted.connect(self._summarise)
+        self.model.rowsRemoved.connect(self._summarise)
+        self.model.modelReset.connect(self._summarise)
+        self._summarise()
+
+    def _summarise(self, *args):
+        self.summary.setText("\n".join(digest.comparison_summary(
+            self.model.rows)))
 
     def add_archives_dialog(self):
         paths, _ = QFileDialog.getOpenFileNames(self, S.CHOOSE_ARCHIVES,

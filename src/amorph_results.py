@@ -733,19 +733,22 @@ def draw_likelihood(fig, r):
 
 
 def draw_model(fig, r):
-    # 50 posterior samples and the posterior mean of each part
+    # 50 posterior samples and the posterior mean of each part: the model
+    # dark, the amorphous part blue, the crystalline part orange and the
+    # background grey, as in the GUI
     c = r.curves
     ax = fig.add_subplot(1, 1, 1)
-    styles = [("model_curve", "g", "g-"), ("wide", "b", "b--"),
-              ("narrow", "r", "r--"), ("bg", "y", "y--")]
+    styles = [("model_curve", "#1B2430", "-"), ("wide", "#1D4ED8", "--"),
+              ("narrow", "#EA580C", "--"), ("bg", "#6B7280", "--")]
     for name, color, _ in styles:
         if name + "_examples" in c:
             for curve in c[name + "_examples"]:
-                ax.plot(r.x, curve, color, linewidth=1, alpha=0.1)
-    for name, _, style in styles:
+                ax.plot(r.x, curve, color=color, linewidth=1, alpha=0.1)
+    for name, color, style in styles:
         if name + "_mean" in c:
-            ax.plot(r.x, c[name + "_mean"], style, linewidth=3, alpha=1)
-    ax.plot(r.x, r.y, "ko", markersize=3, alpha=0.5)
+            ax.plot(r.x, c[name + "_mean"], style, color=color, linewidth=2.5,
+                    alpha=1)
+    ax.plot(r.x, r.y, "o", color="#4B5563", markersize=2.5, alpha=0.5)
     ax.set_ylim(0)
     ax.set_xlabel("$2\\theta$ (degrees)", fontsize=14)
     ax.set_ylabel("Intensity", fontsize=14)

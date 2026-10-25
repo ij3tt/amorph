@@ -10,23 +10,76 @@ import os
 import sys
 import time
 
-from PySide6.QtCore import QSize
-from PySide6.QtWidgets import (QFileDialog, QHBoxLayout, QListWidget,
-                               QMainWindow, QMessageBox, QPushButton,
-                               QStackedWidget, QVBoxLayout, QWidget)
+from PySide6.QtCore import QPointF, QSize, Qt
+from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen
+from PySide6.QtWidgets import (QFileDialog, QHBoxLayout, QLabel,
+                               QListWidget, QListWidgetItem, QMainWindow,
+                               QMessageBox, QPushButton, QStackedWidget,
+                               QVBoxLayout, QWidget)
 
 import amorph_archive
 
 from amorph_gui import config, preferences, runfiles
 from amorph_gui import strings as S
+from amorph_gui import theme
 from amorph_gui.compare_screen import CompareScreen
 from amorph_gui.data_screen import DataScreen
 from amorph_gui.results_screen import ResultsScreen
 from amorph_gui.runs import Run, RunQueue
 from amorph_gui.runs_screen import RunsScreen
 from amorph_gui.tasks import Tasks
+from amorph_gui.widgets import HEADER_HEIGHT
 
 DATA, RUNS, RESULTS, COMPARE = range(4)
+
+
+class Logo(QWidget):
+    """
+    The mark of AMORPH: a broad hump and a sharp peak on a baseline.
+    """
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedSize(QSize(24, 24))
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        pen = QPen(QColor(theme.INK), 1.8)
+        pen.setCapStyle(Qt.RoundCap)
+        pen.setJoinStyle(Qt.RoundJoin)
+        p.setPen(pen)
+        p.drawLine(QPointF(2, 19), QPointF(22, 19))
+        hump = QPainterPath(QPointF(3, 18))
+        hump.cubicTo(QPointF(6, 18), QPointF(6, 9), QPointF(9, 9))
+        hump.cubicTo(QPointF(12, 9), QPointF(12, 18), QPointF(15, 18))
+        p.drawPath(hump)
+        spike = QPainterPath(QPointF(16, 18))
+        spike.lineTo(QPointF(17.2, 6))
+        spike.lineTo(QPointF(18.4, 18))
+        p.drawPath(spike)
+        p.end()
+
+
+class Brand(QWidget):
+    """
+    The name of the program above the navigation, as high as the header of
+    a screen, so that the two make one bar.
+    """
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName("brand")
+        self.setAttribute(Qt.WA_StyledBackground, True)
+        self.setFixedHeight(HEADER_HEIGHT)
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(20, 0, 12, 0)
+        layout.setSpacing(10)
+        layout.addWidget(Logo())
+        name = QLabel(S.APP_NAME)
+        name.setObjectName("brandName")
+        layout.addWidget(name)
+        layout.addStretch(1)
 
 
 class MainWindow(QMainWindow):
@@ -52,18 +105,13 @@ class MainWindow(QMainWindow):
         self.screens = [self.data_screen, self.runs_screen,
                         self.results_screen, self.compare_screen]
 
+        # The steps, numbered as in the design
         self.nav = QListWidget()
         self.nav.setObjectName("nav")
-        self.nav.addItems([S.SCREEN_DATA, S.SCREEN_RUNS, S.SCREEN_RESULTS,
-                           S.SCREEN_COMPARE])
-        self.nav.setFixedWidth(190)
-        self.nav.setSpacing(2)
-        self.nav.setStyleSheet(
-            "QListWidget#nav { background: #263238; color: #eceff1; "
-            "border: none; padding-top: 12px; font-size: 11pt; } "
-            "QListWidget#nav::item { padding: 10px 12px; } "
-            "QListWidget#nav::item:selected { background: #37474f; "
-            "color: white; border-left: 4px solid #4fc3f7; }")
+        for i, name in enumerate([S.SCREEN_DATA, S.SCREEN_RUNS,
+                                  S.SCREEN_RESULTS, S.SCREEN_COMPARE]):
+            QListWidgetItem("{0}   {1}".format(i + 1, name), self.nav)
+        self.nav.setFixedWidth(224)
         self.stack = QStackedWidget()
         for screen in self.screens:
             self.stack.addWidget(screen)
@@ -73,16 +121,19 @@ class MainWindow(QMainWindow):
 
         side = QWidget()
         side.setObjectName("side")
-        side.setStyleSheet("QWidget#side { background: #263238; }")
+        side.setAttribute(Qt.WA_StyledBackground, True)
         side_layout = QVBoxLayout(side)
         side_layout.setContentsMargins(0, 0, 0, 8)
+        side_layout.setSpacing(0)
+        side_layout.addWidget(Brand())
         side_layout.addWidget(self.nav, 1)
         prefs_button = QPushButton(S.PREFERENCES)
-        prefs_button.setStyleSheet("QPushButton { color: #eceff1; "
-                                   "background: #37474f; border: none; "
-                                   "padding: 8px; margin: 0 8px; }")
+        prefs_button.setObjectName("flat")
         prefs_button.clicked.connect(self.show_preferences)
-        side_layout.addWidget(prefs_button)
+        prefs_row = QHBoxLayout()
+        prefs_row.setContentsMargins(8, 0, 8, 0)
+        prefs_row.addWidget(prefs_button)
+        side_layout.addLayout(prefs_row)
 
         central = QWidget()
         layout = QHBoxLayout(central)

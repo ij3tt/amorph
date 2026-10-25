@@ -15,6 +15,7 @@ import amorph_archive
 import amorph_results
 
 from amorph_gui import digest
+from amorph_gui import strings as S
 from amorph_gui.compare_screen import INTERVAL_COLUMN, QUANTILES_ROLE
 from amorph_gui.main_window import RESULTS
 from amorph_gui.widgets import ACCENT
@@ -158,3 +159,39 @@ def test_a_broken_archive_is_reported_in_the_table(window, qtbot, archives,
     assert screen.model.rowCount() == 1
     assert not screen.errors.isHidden() and "broken.amorph" in \
         screen.errors.text()
+
+
+def test_comparison_summary():
+    def row(data, settings, q50):
+        return {"data_file": data, "settings": settings, "q50": q50}
+
+    assert digest.comparison_summary([]) == [S.SUMMARY_EMPTY]
+    # Two seeds of one setting: their spread, nothing about settings
+    lines = digest.comparison_summary([row("a.txt", "A", 0.70),
+                                       row("a.txt", "A", 0.72)])
+    assert lines == [S.SUMMARY_SEEDS.format(0.02)]
+    # The settings move the fraction more than the seeds do
+    lines = digest.comparison_summary([
+        row("a.txt", "A", 0.718), row("a.txt", "A", 0.722),
+        row("a.txt", "B", 0.630), row("a.txt", "B", 0.634)])
+    assert lines[0] == S.SUMMARY_SEEDS.format(0.004)
+    assert lines[1] == S.SUMMARY_SETTINGS.format(0.632, 0.720, 0.088)
+    assert lines[2] == S.SUMMARY_BIGGER
+    # One run per setting: the spread of the seeds is unknown
+    lines = digest.comparison_summary([row("a.txt", "A", 0.7),
+                                       row("a.txt", "B", 0.6)])
+    assert lines[0] == S.SUMMARY_ONE_SEED and len(lines) == 2
+    # Two data files: each on its own
+    lines = digest.comparison_summary([
+        row("a.txt", "A", 0.70), row("a.txt", "A", 0.71),
+        row("b.txt", "A", 0.50), row("b.txt", "A", 0.52)])
+    assert lines[0] == S.SUMMARY_DATA.format("a.txt")
+    assert lines[2] == S.SUMMARY_DATA.format("b.txt")
+
+
+def test_the_screen_shows_the_summary(window, qtbot, archives):
+    screen = loaded(window, qtbot, [archives["seed5"], archives["seed6"]])
+    assert screen.summary.text() == "\n".join(
+        digest.comparison_summary(screen.model.rows))
+    screen.clear()
+    assert screen.summary.text() == S.SUMMARY_EMPTY

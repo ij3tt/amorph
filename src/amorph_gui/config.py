@@ -354,6 +354,32 @@ def wide_band(x, left_edge, right_edge):
             x_min + right_edge * (x_max - x_min))
 
 
+def background_preview(x, y, x_range, control_points):
+    """
+    Where the straight background between the control points roughly lies,
+    for the plot of «Данные и модель»: a low quantile (30%) of the data
+    near each knot, which are the edges of the analysed range and the
+    control points (moved into the range). The sampler fits the background;
+    this only shows the choice of the knots. Returns the x and y of the
+    knots, or None with fewer than 10 points.
+    """
+    keep = selected(x, x_range)
+    xs, ys = np.asarray(x)[keep], np.asarray(y)[keep]
+    if xs.size < 10:
+        return None
+    lo, hi = float(xs[0]), float(xs[-1])
+    knots = [lo] + sorted(min(max(float(c), lo), hi)
+                          for c in control_points) + [hi]
+    half = 0.015 * (hi - lo)
+    values = []
+    for k in knots:
+        near = np.nonzero(np.abs(xs - k) <= half)[0]
+        if near.size < 5:
+            near = np.argsort(np.abs(xs - k))[:5]
+        values.append(float(np.percentile(ys[near], 30.0)))
+    return np.array(knots), np.array(values)
+
+
 def check(settings, x):
     """
     What is wrong with a run of these settings on the data x (None: no

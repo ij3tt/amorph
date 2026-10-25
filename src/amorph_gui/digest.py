@@ -24,6 +24,11 @@ OK = "ok"
 # 0.2, or the cap of narrow peaks
 WEIGHT_WARNING = 0.05
 
+# The effective sample size below which the intervals are unreliable (red)
+# or rough (amber)
+ESS_BAD = 30
+ESS_LOW = 100
+
 
 def run_config(results):
     c = results.info.get("config")
@@ -66,7 +71,8 @@ def diagnostic_cards(results, stopped=False):
     over 5% of the posterior weight has a fraction below 0.2. Amber: over
     5% of the weight at the cap of narrow peaks; control points outside the
     data; a run stopped before its planned number of saves (stopped: the
-    GUI stopped it).
+    GUI stopped it). Last, the effective sample size: red below ESS_BAD,
+    amber below ESS_LOW.
     """
     cards = []
     d = results.diagnosis
@@ -104,7 +110,49 @@ def diagnostic_cards(results, stopped=False):
         else:
             cards.append((OK, S.CARD_STOP_TITLE,
                           S.CARD_STOP_OK.format(saves)))
+
+    if d is not None and "effective_sample_size" in d:
+        ess = float(d["effective_sample_size"])
+        level = RED if ess < ESS_BAD else AMBER if ess < ESS_LOW else OK
+        cards.append((level, S.CARD_ESS_TITLE.format(ess),
+                      {RED: S.CARD_ESS_BAD, AMBER: S.CARD_ESS_LOW,
+                       OK: S.CARD_ESS_OK}[level]))
     return cards
+
+
+def comparison_summary(rows):
+    """
+    What the comparison table shows, in a few sentences, per data file: how
+    far apart the medians of the fraction of runs with the same settings
+    are (the run-to-run error of the sampler), and how far apart those of
+    different settings; and which is the larger.
+    """
+    rows = [r for r in rows if r["q50"] is not None]
+    files = sorted({str(r["data_file"]) for r in rows})
+    lines = []
+    for data_file in files:
+        mine = [r for r in rows if str(r["data_file"]) == data_file]
+        if len(mine) < 2:
+            continue
+        groups = {}
+        for r in mine:
+            groups.setdefault(r["settings"], []).append(r["q50"])
+        if len(files) > 1:
+            lines.append(S.SUMMARY_DATA.format(data_file))
+        spreads = [max(v) - min(v) for v in groups.values() if len(v) > 1]
+        spread = max(spreads) if spreads else None
+        if spread is None:
+            lines.append(S.SUMMARY_ONE_SEED)
+        else:
+            lines.append(S.SUMMARY_SEEDS.format(spread))
+        if len(groups) > 1:
+            means = [sum(v) / len(v) for v in groups.values()]
+            lo, hi = min(means), max(means)
+            lines.append(S.SUMMARY_SETTINGS.format(lo, hi, hi - lo))
+            if spread is not None:
+                lines.append(S.SUMMARY_BIGGER if hi - lo > spread
+                             else S.SUMMARY_SMALLER)
+    return lines or [S.SUMMARY_EMPTY]
 
 
 def _g(value):

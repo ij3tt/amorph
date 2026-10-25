@@ -123,8 +123,10 @@ def test_the_seeds_run_one_after_another(window, qtbot, fake_run, tmp_path):
         assert len(run.results.particles) == 60
         assert "Saving particle to disk. N = 60." in run.log_text()
         assert "log/run.log" in run.results.attachments
+        # The control points and the end of the run; the effective sample
+        # size of a fake run is small and comes last
         assert [level for level, _, _ in digest.diagnostic_cards(
-            run.results)][2:] == [digest.OK, digest.OK]
+            run.results)][2:4] == [digest.OK, digest.OK]
 
     # The runs on «Прогоны», the last results on «Результаты», both seeds
     # on «Сравнение»

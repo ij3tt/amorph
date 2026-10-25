@@ -165,3 +165,27 @@ def test_seeds_of_the_runs():
     seeds = config.run_seeds(config.Settings(seed=None, num_seeds=2),
                              config.MAX_SEED)
     assert seeds == [config.MAX_SEED - 1, config.MAX_SEED]
+
+
+def test_background_preview():
+    # A flat background of 10 with a hump in the middle: the knots sit on
+    # the background, not on the hump
+    x = np.linspace(0.0, 50.0, 1001)
+    y = 10.0 + 50.0 * np.exp(-0.5 * ((x - 25.0) / 4.0)**2)
+    knots, values = config.background_preview(x, y, None, (10.0, 40.0))
+    np.testing.assert_allclose(knots, [0.0, 10.0, 40.0, 50.0])
+    np.testing.assert_allclose(values, 10.0, atol=0.5)
+    # Control points outside the analysed range move to its edges
+    knots, _ = config.background_preview(x, y, (5.0, 45.0), (0.0, 48.0))
+    np.testing.assert_allclose(knots, [5.0, 5.0, 45.0, 45.0])
+    assert config.background_preview(x[:5], y[:5], None, (1.0, 2.0)) is None
+
+
+def test_run_button_text():
+    from amorph_gui import strings as S
+    assert S.run_button_text(1) == "Запустить 1 прогон"
+    assert S.run_button_text(3) == "Запустить 3 прогона"
+    assert S.run_button_text(5) == "Запустить 5 прогонов"
+    assert S.run_button_text(11) == "Запустить 11 прогонов"
+    assert S.run_button_text(21) == "Запустить 21 прогон"
+    assert S.run_button_text(22) == "Запустить 22 прогона"

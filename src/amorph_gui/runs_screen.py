@@ -8,7 +8,7 @@ import os
 
 import pyqtgraph as pg
 from PySide6.QtCore import Qt, QUrl, Signal
-from PySide6.QtGui import QDesktopServices, QFontDatabase, QTextCursor
+from PySide6.QtGui import QColor, QDesktopServices, QTextCursor
 from PySide6.QtWidgets import (QAbstractItemView, QHBoxLayout, QHeaderView,
                                QLabel, QPlainTextEdit, QProgressBar,
                                QSplitter, QTableWidget, QTableWidgetItem,
@@ -16,16 +16,19 @@ from PySide6.QtWidgets import (QAbstractItemView, QHBoxLayout, QHeaderView,
 
 from amorph_gui import runs as R
 from amorph_gui import strings as S
-from amorph_gui.widgets import Screen, bold
+from amorph_gui import theme
+from amorph_gui.widgets import Screen, card, styled_label
 
-# The curves of the live plot, as draw_model of amorph_results colours them
-CURVE_STYLE = [("model_curve", S.LEGEND_MODEL, (46, 125, 50), 2),
-               ("wide", S.LEGEND_WIDE, (21, 101, 192), 2),
-               ("narrow", S.LEGEND_NARROW, (198, 40, 40), 1),
-               ("bg", S.LEGEND_BACKGROUND, (175, 150, 0), 1)]
+# The curves of the live plot: name in the sample, legend, colour, width,
+# dashed
+CURVE_STYLE = [("model_curve", S.LEGEND_MODEL, theme.ACCENT, 2.2, False),
+               ("wide", S.LEGEND_WIDE, "#60A5FA", 1.5, False),
+               ("narrow", S.LEGEND_NARROW, theme.NARROW, 1.2, False),
+               ("bg", S.LEGEND_BACKGROUND, theme.AMBER, 1.2, True)]
 
 COLUMNS = [S.COLUMN_FOLDER, S.COLUMN_SEED, S.COLUMN_STATUS, S.COLUMN_SAVES,
            S.COLUMN_LEVELS, S.COLUMN_TIME]
+STATUS_COLUMN = 2
 
 
 class RunsScreen(Screen):
@@ -41,83 +44,105 @@ class RunsScreen(Screen):
         self.rows = []
         self.shown = None
         self._data_of = None
-        self.stop_button = self.add_button(S.STOP, queue.stop, S.STOP_TIP)
+        self.set_header("", S.NO_RUNS)
+        self.stop_button = self.add_button(S.STOP, queue.stop, S.STOP_TIP,
+                                           kind="danger")
         self.stop_button.setEnabled(False)
         self.folder_button = self.add_button(S.OPEN_FOLDER, self.open_folder)
         self.folder_button.setEnabled(False)
 
-        self.hint = QLabel(S.NO_RUNS)
-        self.body.addWidget(self.hint)
+        splitter = QSplitter(Qt.Horizontal)
+        splitter.setChildrenCollapsible(False)
+        splitter.setHandleWidth(16)
+        splitter.addWidget(self._make_queue())
+        splitter.addWidget(self._make_live())
+        splitter.setStretchFactor(0, 2)
+        splitter.setStretchFactor(1, 3)
+        splitter.setSizes([480, 720])
+        self.body.addWidget(splitter, 1)
+
+        queue.changed.connect(self.update_run)
+        queue.output.connect(self._output)
+
+    # -------------------------------------------------------------- layout
+
+    def _make_queue(self):
+        queue_card, layout = card(S.QUEUE_TITLE)
+        self.hint = styled_label(S.NO_RUNS, "muted")
+        layout.addWidget(self.hint)
         self.table = QTableWidget(0, len(COLUMNS))
         self.table.setHorizontalHeaderLabels(COLUMNS)
         self.table.verticalHeader().setVisible(False)
+        self.table.verticalHeader().setDefaultSectionSize(38)
+        self.table.setShowGrid(False)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SingleSelection)
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.Stretch)
+        header.setDefaultAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         for i in range(1, len(COLUMNS)):
             header.setSectionResizeMode(i, QHeaderView.ResizeToContents)
-        self.table.setMaximumHeight(170)
         self.table.itemSelectionChanged.connect(self._selected)
         self.table.cellDoubleClicked.connect(self._double_clicked)
-        self.body.addWidget(self.table)
+        layout.addWidget(self.table, 1)
 
-        row = QHBoxLayout()
         self.progress = QProgressBar()
         self.progress.setTextVisible(False)
-        self.progress.setMaximumWidth(260)
+        layout.addWidget(self.progress)
         self.progress_text = QLabel()
-        row.addWidget(self.progress)
-        row.addWidget(self.progress_text, 1)
-        self.body.addLayout(row)
+        self.progress_text.setObjectName("mono")
+        self.progress_text.setWordWrap(True)
+        layout.addWidget(self.progress_text)
         self.error = QLabel()
-        self.error.setStyleSheet("color: #b71c1c")
+        self.error.setStyleSheet("color: {0}".format(theme.RED))
         self.error.setWordWrap(True)
         self.error.hide()
-        self.body.addWidget(self.error)
+        layout.addWidget(self.error)
+        layout.addWidget(styled_label(S.RUNS_NOTE, "muted"))
+        return queue_card
 
-        splitter = QSplitter(Qt.Horizontal)
-        plot_panel = QWidget()
-        layout = QVBoxLayout(plot_panel)
-        layout.setContentsMargins(0, 0, 0, 0)
-        self.plot_title = bold(QLabel(S.LIVE_PLOT))
+    def _make_live(self):
+        column = QWidget()
+        outer = QVBoxLayout(column)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(16)
+
+        legend = QLabel(theme.swatches(
+            [("line", theme.DATA_LIGHT, S.LEGEND_DATA)]
+            + [("dash" if dashed else "line", color, label)
+               for _, label, color, _, dashed in CURVE_STYLE]))
+        legend.setTextFormat(Qt.RichText)
+        legend.setObjectName("muted")
+        live_card, layout = card()
+        self.plot_title = QLabel(S.LIVE_PLOT)
+        self.plot_title.setObjectName("cardTitle")
         layout.addWidget(self.plot_title)
-        self.plot = pg.PlotWidget(background="w")
-        item = self.plot.getPlotItem()
-        item.setLabel("bottom", S.AXIS_X)
-        item.setLabel("left", S.AXIS_Y)
-        item.showGrid(x=True, y=True, alpha=0.15)
-        item.addLegend(offset=(-10, 10))
-        self.data_curve = item.plot([], [], pen=None, symbol="o",
-                                    symbolSize=3, symbolPen=None,
-                                    symbolBrush=(90, 90, 90, 120),
-                                    name=S.LEGEND_DATA)
+        layout.addWidget(legend)
+        self.plot = pg.PlotWidget()
+        item = theme.style_plot(self.plot, S.AXIS_X, S.AXIS_Y)
+        self.data_curve = item.plot([], [], pen=pg.mkPen(theme.DATA_LIGHT,
+                                                         width=1))
         self.curves = {}
-        for name, label, color, width in CURVE_STYLE:
-            self.curves[name] = item.plot([], [], name=label,
-                                          pen=pg.mkPen(color, width=width))
+        for name, _, color, width, dashed in CURVE_STYLE:
+            pen = pg.mkPen(color, width=width,
+                           style=Qt.DashLine if dashed else Qt.SolidLine)
+            self.curves[name] = item.plot([], [], pen=pen)
+        self.plot.setMinimumHeight(260)
         layout.addWidget(self.plot, 1)
-        splitter.addWidget(plot_panel)
+        layout.addWidget(styled_label(S.LIVE_HINT, "muted"))
+        outer.addWidget(live_card, 3)
 
-        log_panel = QWidget()
-        layout = QVBoxLayout(log_panel)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(bold(QLabel(S.LOG)))
+        log_card, layout = card(S.LOG)
         self.log = QPlainTextEdit()
+        self.log.setObjectName("log")
         self.log.setReadOnly(True)
         self.log.setLineWrapMode(QPlainTextEdit.NoWrap)
         self.log.setMaximumBlockCount(20000)
-        self.log.setFont(QFontDatabase.systemFont(QFontDatabase.FixedFont))
+        self.log.setFont(theme.mono(9.0))
         layout.addWidget(self.log, 1)
-        splitter.addWidget(log_panel)
-        splitter.setStretchFactor(0, 3)
-        splitter.setStretchFactor(1, 2)
-        splitter.setSizes([700, 460])
-        self.body.addWidget(splitter, 1)
-
-        queue.changed.connect(self.update_run)
-        queue.output.connect(self._output)
+        outer.addWidget(log_card, 2)
+        return column
 
     # ---------------------------------------------------------------- rows
 
@@ -126,6 +151,7 @@ class RunsScreen(Screen):
             self.rows.append(run)
             self.table.insertRow(self.table.rowCount())
             self.hint.hide()
+            self.set_header("", S.RUNS_HEADER.format(len(self.rows)))
         i = self.rows.index(run)
         planned = str(run.planned) if run.planned else "∞"
         cells = [run.name, str(run.seed), R.STATUS_TEXT[run.status],
@@ -136,9 +162,14 @@ class RunsScreen(Screen):
             if item is None:
                 item = QTableWidgetItem()
                 self.table.setItem(i, j, item)
+                if j > 0:
+                    item.setFont(theme.mono(9.5))
             item.setText(text)
             if j == 0:
                 item.setToolTip(run.folder)
+        status = self.table.item(i, STATUS_COLUMN)
+        status.setForeground(QColor(theme.STATUS_COLORS.get(run.status,
+                                                            theme.INK)))
         # Follow the run that is running, unless another one is chosen
         if run.status == R.RUNNING and (self.shown is None
                                         or self.shown.status != R.RUNNING):
@@ -206,6 +237,12 @@ class RunsScreen(Screen):
         if self._data_of is not run:
             self.data_curve.setData(x, run.y)
             self._data_of = run
+            # The scale of the data: early samples, near the prior, have
+            # peaks thousands of times higher, which would hide the data
+            item = self.plot.getPlotItem()
+            item.setXRange(float(x[0]), float(x[-1]), padding=0.01)
+            item.setYRange(min(0.0, float(run.y.min())),
+                           float(run.y.max()) * 1.25, padding=0.0)
 
     def open_folder(self):
         if self.shown is not None and os.path.isdir(self.shown.folder):
