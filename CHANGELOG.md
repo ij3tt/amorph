@@ -9,7 +9,8 @@ annotated with a message of more than one line, which is used instead (see
 
 ## 1.0.0
 
-The first release, with executables for Windows, Linux and macOS. Since the
+The first release, with executables and a graphical interface for Windows,
+Linux and macOS. Since the
 AMORPH of the paper (Rowe and Brewer, 2018), the fixes of two bugs of the
 sampler change the results of every analysis, and those of the
 post-processing change some; see "Results change".
@@ -38,6 +39,17 @@ The pull requests are those of
 
 ### Added
 
+- A graphical interface, `src/amorph_gui` (PySide6, in Russian): the data
+  with the range and the background control points dragged on the plot,
+  every setting of `config.yaml` with its checks, runs of several seeds
+  with their progress and a live plot, the results with the diagnosis and
+  every figure, and the comparison of run archives (#13). Packaged for
+  Windows, Linux and macOS with the sampler inside, ready to run without
+  Python (#15).
+- A faster sampler, with the same model: each peak is evaluated only within
+  20 widths of its centre, and the curves are updated by the peaks that
+  changed instead of computed anew. In the validation it saved 1.6 to 4.3
+  times as many samples per minute (#14).
 - Version numbers: AMORPH prints its version in the first line of its
   output, and run archives record it.
 - Checks of `config.yaml` and of the data file before the sampler starts,
@@ -90,6 +102,7 @@ The pull requests are those of
   bundled datasets (#1, #2), `experiment.yml` runs settings on several seeds
   in parallel (#5–#7, #10).
 - Releases: `release.yml` builds, tests and packs the three systems on a
-  pushed tag `v*`, with SHA-256 checksums. The Linux executable needs glibc
+  pushed tag `v*`, with SHA-256 checksums, and the GUI packaged with
+  PyInstaller on each system, whose self-test runs on the package (#15). The Linux executable needs glibc
   2.34 and the libstdc++ of GCC 13 or newer, the macOS one macOS 11 or
   newer. The actions of the GitHub workflows run on Node 24.

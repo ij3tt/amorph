@@ -111,3 +111,53 @@ jobs:
           name: AMORPH-macos
           path: dist/macos/
           if-no-files-found: error
+
+  # The GUI packaged with PyInstaller on each system, with the sampler that
+  # the jobs above built and tested, and the self-test of the packaged
+  # program. release.yml attaches the archives to a release.
+  gui-package:
+    name: GUI package (${{ matrix.system }})
+    needs: [windows, linux, macos]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {system: windows-x64, os: windows-latest,
+             artefact: AMORPH-windows, sampler: AMORPH.exe}
+          - {system: linux-x64, os: ubuntu-latest,
+             artefact: AMORPH-linux, sampler: AMORPH}
+          - {system: macos-arm64, os: macos-latest,
+             artefact: AMORPH-macos, sampler: AMORPH}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: ${{ matrix.artefact }}
+          path: build/sampler
+
+      - name: Package the GUI and run the self-test of the package
+        shell: bash
+        run: |
+          bash scripts/ci/gui_package.sh ${{ matrix.system }} \
+              build/sampler/${{ matrix.sampler }}
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: AMORPH-GUI-${{ matrix.system }}
+          path: dist/gui/
+          if-no-files-found: error
+
+      # The screenshots and the log of the self-test of the package
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: gui-package-test-${{ matrix.system }}
+          path: build/gui-package-test/
+          if-no-files-found: ignore
