@@ -21,6 +21,10 @@ with its posterior weight) and posterior_sample.txt, and reports
   which shows that the prior limit, not the data, sets that number;
 - the posterior of the noise parameters and of nu of the narrow peaks.
 
+--range LOW HIGH also gives the posterior quantiles of the amorphous fraction
+within that range of x: runs on different ranges of the same measurement
+can then be compared on the range they share.
+
 --table writes one row per saved particle with these quantities, a small
 file instead of the hundreds of megabytes of sample.txt.
 """
@@ -104,6 +108,9 @@ def main():
     p.add_argument("--json", help="write the diagnosis to this JSON file")
     p.add_argument("--table", help="write one row per saved particle to this "
                                    "CSV file (.gz to compress it)")
+    p.add_argument("--range", nargs=2, type=float, metavar=("LOW", "HIGH"),
+                   help="also give the amorphous fraction within this range "
+                        "of x")
     args = p.parse_args()
 
     def path(name):
@@ -111,6 +118,11 @@ def main():
 
     x, y = amorph_stats.load_data(args.data)
     n = x.size
+    if args.range is not None:
+        inside = (x >= args.range[0]) & (x <= args.range[1])
+        if inside.sum() < 2:
+            p.error("--range {0} {1}: fewer than two data points in it".format(
+                *args.range))
 
     # Every saved particle, with its posterior weight
     names = column_names(path("sample.txt"))
@@ -174,6 +186,16 @@ def main():
                                     weights),
         "bands": [],
     }
+    if args.range is not None:
+        part = amorph_stats.amorphous_fraction(wide[:, inside],
+                                               narrow[:, inside], x[inside])
+        ok = ~np.isnan(part)
+        result["fraction_in_range"] = dict(
+            [("range", list(args.range))]
+            + list(zip(["q05", "q16", "q25", "q50", "q75", "q84", "q95"],
+                       weighted_quantiles(part[ok], weights[ok],
+                                          [0.05, 0.16, 0.25, 0.5, 0.75, 0.84,
+                                           0.95]))))
     hist, edges = np.histogram(fraction[defined], bins=20, range=(0.0, 1.0),
                                weights=w)
     result["histogram"] = {"edges": edges.tolist(), "weights": hist.tolist()}
@@ -207,6 +229,12 @@ def main():
     print("Amorphous fraction: median {0:.3f}, 50% interval [{1:.3f}, "
           "{2:.3f}], 90% interval [{3:.3f}, {4:.3f}]".format(
               f["q50"], f["q25"], f["q75"], f["q05"], f["q95"]))
+    if args.range is not None:
+        r = result["fraction_in_range"]
+        print("Amorphous fraction from {0:g} to {1:g}: median {2:.3f}, 50% "
+              "interval [{3:.3f}, {4:.3f}], 90% interval [{5:.3f}, "
+              "{6:.3f}]".format(r["range"][0], r["range"][1], r["q50"],
+                                r["q25"], r["q75"], r["q05"], r["q95"]))
     print("Posterior weight with fraction 0: {0:.2%}, below 0.2: {1:.2%}, "
           "below 0.45: {2:.2%}".format(result["weight_fraction_0"],
                                        result["weight_fraction_below_0.2"],

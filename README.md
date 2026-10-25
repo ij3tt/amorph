@@ -37,7 +37,10 @@ Four test datasets are stored in the repository
 (`0%glass_rhyolite_Emperyon.txt`, `50% glass .02step3secdwell.txt`,
 `90%_glass_basalt_Emperyon.txt`, and `easy_data.txt`), and two more
 samples, `G30RAW_amorph.txt` and `N3RAW_amorph.txt` (26–46°), that show
-the ambiguity described in "The shape of the crystalline peaks" below.
+the ambiguity described in "The shape of the crystalline peaks" below. The
+whole scans of these two samples (Cu Kα, 5–70°, step 0.02°) are
+`G30RAW.txt` and `N3RAW.txt`, and `*_20-50.txt` and `*_15-70.txt` are
+parts of them.
 The program is set to run until
 10,000 saved parameter sets have been generated. Outputs may be viewed at any
 point, however, closing the program before reaching  10,000 will reduce the
@@ -338,13 +341,15 @@ restarts the comparison). Each sampler run stops after 5000 saves or
 what it saved by then is post-processed; the log of each run reports the
 number of saves and levels every 10 minutes.
 
-`.github/workflows/experiment.yml` runs the two ambiguous samples,
-`src/N3RAW_amorph.txt` and `src/G30RAW_amorph.txt`, with the settings listed
-in `scripts/ci/experiment_settings.json` (the maximum numbers of peaks,
-`narrow_peak_nu` and `control_points`), each with two seeds, all in
-parallel, and writes a table of how much posterior weight has an amorphous
-fraction of 0 or below 0.2. It is started the same way: "Run workflow", or
-the label `experiment` on a pull request.
+`.github/workflows/experiment.yml` runs bundled datasets with the settings
+listed in `scripts/ci/experiment_settings.json` (the maximum numbers of
+peaks, `narrow_peak_nu`, `control_points` and, optionally, other settings
+of `config.yaml`), each with several seeds, all in parallel, and writes a
+table of the amorphous fraction and of how much posterior weight has a
+fraction of 0 or below 0.2. With `"fraction_range"` it also gives the
+fraction within that range, to compare runs on different ranges of one
+scan. It is started the same way: "Run workflow", or the label
+`experiment` on a pull request.
 
 ### Diagnosing the posterior
 
@@ -364,6 +369,7 @@ weight at a low fraction, with hundreds of narrow peaks at a small ν and the
 same likelihood as the main mode, means that the data do not determine the
 fraction. `--table` writes one row per saved particle (a few hundred
 kilobytes, instead of the hundreds of megabytes of `sample.txt`).
+`--range LOW HIGH` also gives the fraction within that range of x.
 
 ### The legacy Makefile
 
