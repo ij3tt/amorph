@@ -7,7 +7,9 @@ repository root:
     python -m pytest tests
 """
 
+import json
 import os
+import re
 import subprocess
 import sys
 import zipfile
@@ -238,6 +240,33 @@ def test_archive_keeps_the_results(run, tmp_path_factory):
         len(amorph_results.FIGURES)
     assert os.path.getsize(path) < os.path.getsize(
         os.path.join(folder, "sample.txt"))
+
+
+def test_version_is_that_of_cmake():
+    with open(os.path.join(ROOT, "CMakeLists.txt")) as f:
+        version = re.search(r"^project\(AMORPH VERSION ([0-9.]+)", f.read(),
+                            re.MULTILINE).group(1)
+    assert amorph_results.AMORPH_VERSION == version
+
+
+def test_manifest_names_the_versions(run, tmp_path_factory):
+    folder, _, _ = run
+    out = str(tmp_path_factory.mktemp("manifest"))
+    results = amorph_results.from_run(folder)
+    amorph_archive.write(results, os.path.join(out, "without_log.amorph"))
+    # The output of the sampler, as scripts/ci/validate_run.sh keeps it
+    with open(os.path.join(folder, "run.log"), "w") as f:
+        f.write("# AMORPH 0.9.1\n# Seeding random number generators.\n")
+    results = amorph_results.from_run(folder)
+    amorph_archive.write(results, os.path.join(out, "with_log.amorph"))
+
+    def software(name):
+        with zipfile.ZipFile(os.path.join(out, name)) as z:
+            return json.loads(z.read("manifest.json"))["software"]
+    assert software("without_log.amorph")["amorph"] == \
+        amorph_results.AMORPH_VERSION
+    assert "sampler" not in software("without_log.amorph")
+    assert software("with_log.amorph")["sampler"] == "0.9.1"
 
 
 def test_archive_from_the_command_line(run, tmp_path_factory):

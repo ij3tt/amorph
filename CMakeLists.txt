@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
-project(AMORPH LANGUAGES CXX)
+
+# The version of AMORPH. Keep AMORPH_VERSION in src/amorph_results.py in step
+# (tests/test_results.py checks); a release is tagged v<version>
+# (.github/workflows/release.yml checks).
+project(AMORPH VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -57,6 +61,9 @@ target_link_libraries(amorph_core PUBLIC dnest4 yaml-cpp)
 
 add_executable(AMORPH ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
 target_link_libraries(AMORPH PRIVATE amorph_core)
+# main() prints it first
+target_compile_definitions(AMORPH PRIVATE
+    "AMORPH_VERSION=\"${PROJECT_VERSION}\"")
 
 if(WIN32 AND AMORPH_STATIC_LINK)
     target_link_options(AMORPH PRIVATE -static)

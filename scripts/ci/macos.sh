@@ -15,8 +15,12 @@ cd "${REPO_ROOT}"
 
 setup_python "${REPO_ROOT}/build/venv"
 
-cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+# For macOS 11, the first to run on Apple Silicon, and newer: by default the
+# executable would need the macOS of the runner
+cmake -B build -S . -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
 cmake --build build -j "$(sysctl -n hw.ncpu)"
+otool -l build/AMORPH | grep -A 4 LC_BUILD_VERSION
 (cd build && ctest --output-on-failure)
 
 bash scripts/smoke_test.sh build/AMORPH build/smoke
