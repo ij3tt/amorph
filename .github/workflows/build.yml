@@ -1,13 +1,16 @@
 name: Build
 
 # The build steps live in scripts/ci/ and are shared with GitVerse CI
-# (.gitverse/workflows/build.yml).
+# (.gitverse/workflows/build.yml). .github/workflows/release.yml calls this
+# workflow and packs the AMORPH-windows, AMORPH-linux and AMORPH-macos
+# artefacts, so keep their names and contents.
 
 on:
   push:
     branches: [master]
   pull_request:
   workflow_dispatch:
+  workflow_call:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

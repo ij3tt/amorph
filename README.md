@@ -9,6 +9,76 @@ version 3. See the LICENSE file for details.
 
 *Русская версия этого файла: [README.ru.md](README.ru.md).*
 
+Downloads
+=========
+
+Each release of AMORPH on the
+[Releases page](https://github.com/ij3tt/amorph/releases) has the
+command-line version for three systems, ready to run:
+
+| file | system |
+|---|---|
+| `AMORPH-<tag>-windows-x64.zip` | Windows 10 or newer, 64-bit (x86-64) |
+| `AMORPH-<tag>-linux-x64.tar.gz` | Linux on x86-64 with glibc 2.34 and the libstdc++ of GCC 13 or newer: Ubuntu 24.04, Debian 13, Fedora 39 or newer |
+| `AMORPH-<tag>-macos-arm64.zip` | macOS 11 or newer on Apple Silicon (M1 or newer) |
+| `AMORPH-<tag>-SHA256SUMS.txt` | the SHA-256 checksums of the three |
+
+`<tag>` is the version, such as `v1.0.0`; [CHANGELOG.md](CHANGELOG.md) says
+what changed in each. Each archive holds one folder, `AMORPH-<tag>-<system>`,
+with
+
+* `AMORPH` (`AMORPH.exe` on Windows), the sampler;
+* the Python post-processing: `showresults.py` and the modules it uses,
+  `display.py`, `dnest_functions.py`, `amorph_stats.py`,
+  `amorph_results.py` and `amorph_archive.py`;
+* `config.yaml`, the settings of a run, set up for `easy_data.txt`;
+* `OPTIONS` and `OPTIONS_AGGRESSIVE`, the settings of the DNest4 sampler;
+* `easy_data.txt`, an example dataset (the others are in `src/` of the
+  repository);
+* `README.md` and `README.ru.md` (this file), `LICENSE` (GNU GPL version 3)
+  and, in `licenses/`, the licences of the libraries built into the
+  executable: DNest4, yaml-cpp and, on Windows, the mingw-w64 runtime.
+
+Unpack it anywhere and run AMORPH in that folder: it reads `config.yaml`
+from the folder it runs in (see "Guide to installing and operating" below).
+On Linux and macOS that is `./AMORPH` in a terminal; on Windows a double
+click on `AMORPH.exe` works too. The source code of a release is on its page
+as well. The executables that CI builds for every change are artefacts of
+the GitHub Actions runs, which expire after a few weeks; the releases stay.
+
+To check a download against the checksums: on Linux
+`sha256sum -c --ignore-missing AMORPH-<tag>-SHA256SUMS.txt`; on macOS
+`shasum -a 256 AMORPH-<tag>-macos-arm64.zip`, and on Windows
+`Get-FileHash AMORPH-<tag>-windows-x64.zip` in PowerShell, each compared
+with its line of the file.
+
+### The executables are not signed
+
+Windows and macOS warn before they run a downloaded program that is not
+signed by a known developer, and the executables of AMORPH are not.
+
+**Windows (SmartScreen).** The first time `AMORPH.exe` is started by a
+double click, Windows may show "Windows protected your PC". Click "More
+info", then "Run anyway". Or, before unpacking the zip file: right click
+it → Properties → tick "Unblock" → OK; the unpacked files then carry no
+mark of a download.
+
+**macOS (Gatekeeper).** macOS refuses to open `AMORPH` the first time
+("cannot be opened because the developer cannot be verified", or "Apple
+could not verify..."). Allow it once:
+
+* macOS 14 and older: in the Finder, right click (or Control-click)
+  `AMORPH` → Open, and Open again in the dialog;
+* macOS 15 and newer: try to open it once, then System Settings → Privacy &
+  Security, and "Open Anyway" next to the message about `AMORPH`;
+* or, in Terminal in the folder of AMORPH, remove the mark of the download:
+  `xattr -d com.apple.quarantine AMORPH`.
+
+Opened from the Finder, AMORPH runs in a Terminal window in your home folder
+and stops at once, since it finds no `config.yaml` there; that is expected.
+From then on run it from its folder in Terminal: `cd` to the folder, then
+`./AMORPH`. The Python scripts need none of this.
+
 Guide to installing and operating:
 ==================================
 
@@ -16,10 +86,10 @@ AMORPH is hosted at the following URL:
 
 [https://bitbucket.org/eggplantbren/amorph]([https://bitbucket.org/eggplantbren/amorph)
 
-The repository includess the source code, Python scripts for viewing results,
-example datasets, and the Windows executable file (`AMORPH.exe`), which is
-the easiest way of using AMORPH. It is located (along with almost everything
-else) in the `src` subdirectory.
+The repository includes the source code, Python scripts for viewing results
+and example datasets, most of them in the `src` subdirectory. The easiest way
+of using AMORPH is a release, with the executable for your system (see
+"Downloads" above).
 The Python scripts make use of the packages Numpy, matplotlib, Pandas, and
 yaml, and has only
 been tested under Python 3. [https://www.anaconda.com/download/](Anaconda) is a
@@ -334,7 +404,8 @@ bash scripts/smoke_test.sh build/AMORPH build/smoke
 
 It also checks that a `config.yaml` naming a missing data file makes AMORPH
 exit at once with status 1 and an error message (on Windows: without waiting
-for Enter).
+for Enter), and that the first line of the output is `# AMORPH` and the
+version of `CMakeLists.txt`.
 
 ### Unit tests
 
@@ -371,6 +442,30 @@ The repository is built on two CI services, which run the same scripts from
   Linux build and tests, and the cross-compiled `AMORPH.exe` as an artefact
   (kept for 7 days). GitVerse has no Windows runners, so the executable is
   not run there.
+
+### Releases
+
+`.github/workflows/release.yml` makes the releases of "Downloads". It runs
+the jobs of `build.yml` (the builds, the tests and the smoke tests of the
+three systems), then `scripts/ci/package_release.sh` packs their artefacts
+with the READMEs and the licences and writes the checksums. To release
+version 1.2.0:
+
+1. Set the version in `project(AMORPH VERSION 1.2.0 ...)` of
+   `CMakeLists.txt` and in `AMORPH_VERSION` of `src/amorph_results.py`
+   (the tests check that the two agree; AMORPH prints it in the first line
+   of its output, and run archives record it in `manifest.json`), and add a
+   section `## 1.2.0` to `CHANGELOG.md`.
+2. Optionally, a dry run: "Run workflow" for Release on the GitHub Actions
+   tab. It builds and packs everything, named after the version of
+   `CMakeLists.txt`, and uploads it as the artefact `release-v1.2.0`,
+   without making a release; the summary of the run shows the notes.
+3. Tag the commit and push the tag to GitHub: `git tag v1.2.0` and
+   `git push origin v1.2.0`. The workflow stops unless the tag is
+   `v` and the version of `CMakeLists.txt`. It makes the GitHub Release of
+   the tag with the files, its notes taken from the section of the version
+   in `CHANGELOG.md`; an annotated tag whose message has more than one line
+   (`git tag -a v1.2.0`) gives its message as the notes instead.
 
 `.github/workflows/validate.yml` compares the results of two versions of
 AMORPH: it runs both on the four bundled datasets and writes a table of the

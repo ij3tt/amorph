@@ -1,0 +1,132 @@
+name: Release
+
+# Releases AMORPH. build.yml builds the three command-line distributions with
+# the scripts in scripts/ci/ and runs their smoke tests; then
+# scripts/ci/package_release.sh packs them with the READMEs and the licences
+# and writes their SHA-256 checksums.
+#
+# - A pushed tag v<version>, where <version> is that of project() in
+#   CMakeLists.txt, makes the GitHub Release of the tag with these files.
+#   Its notes are the message of the tag, if it is an annotated tag with a
+#   message of more than one line, or else the section "## <version>" of
+#   CHANGELOG.md (scripts/ci/release_notes.sh).
+# - "Run workflow" on the Actions tab is a dry run, on a branch or a tag:
+#   the same files, named after the version in CMakeLists.txt, are only
+#   uploaded as an artefact, and the notes are shown in the summary of the
+#   run.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    name: Version and release notes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.check.outputs.tag }}
+      notes: ${{ steps.check.outputs.notes }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check the version and write the release notes
+        id: check
+        run: |
+          version="$(sed -n 's/^project(AMORPH VERSION \([0-9.]*\).*/\1/p' \
+                     CMakeLists.txt)"
+          if [ -z "${version}" ]; then
+              echo "::error::No project(AMORPH VERSION ...) in CMakeLists.txt"
+              exit 1
+          fi
+          if [ "${GITHUB_EVENT_NAME}" = push ]; then
+              tag="${GITHUB_REF_NAME}"
+              if [ "${tag}" != "v${version}" ]; then
+                  echo "::error::The tag is ${tag}, but the version in" \
+                       "CMakeLists.txt is ${version}: tag v${version}"
+                  exit 1
+              fi
+              # The checkout may leave the tag without its message
+              git fetch --force --depth=1 origin \
+                  "refs/tags/${tag}:refs/tags/${tag}"
+          else
+              tag="v${version}"
+          fi
+          if ! bash scripts/ci/release_notes.sh "${tag}" > notes.md; then
+              if [ "${GITHUB_EVENT_NAME}" = push ]; then
+                  exit 1
+              fi
+              echo "::warning::No release notes for ${tag} yet"
+          fi
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+          {
+              echo "notes<<AMORPH_RELEASE_NOTES"
+              cat notes.md
+              echo "AMORPH_RELEASE_NOTES"
+          } >> "${GITHUB_OUTPUT}"
+          {
+              echo "# AMORPH ${version}"
+              echo
+              cat notes.md
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+  build:
+    name: Build
+    needs: version
+    uses: ./.github/workflows/build.yml
+
+  release:
+    name: Pack and release
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ needs.version.outputs.tag }}
+      NOTES: ${{ needs.version.outputs.notes }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # AMORPH-windows, AMORPH-linux and AMORPH-macos, each in its folder
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: AMORPH-*
+          path: dist
+
+      - name: Pack and write the checksums
+        run: |
+          bash scripts/ci/package_release.sh "${TAG}" dist release
+          printf '%s\n' "${NOTES}" > notes.md
+          {
+              echo '```'
+              cat "release/AMORPH-${TAG}-SHA256SUMS.txt"
+              echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ env.TAG }}
+          path: |
+            release/
+            notes.md
+          if-no-files-found: error
+
+      - name: Create the GitHub Release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if gh release view "${TAG}" > /dev/null 2>&1; then
+              # A re-run: replace the files and the notes
+              gh release upload "${TAG}" release/* --clobber
+              gh release edit "${TAG}" --notes-file notes.md
+          else
+              gh release create "${TAG}" release/* --verify-tag \
+                  --title "AMORPH ${TAG#v}" --notes-file notes.md
+          fi

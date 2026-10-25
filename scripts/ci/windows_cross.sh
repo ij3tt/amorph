@@ -47,4 +47,13 @@ cp src/showresults.py src/display.py src/dnest_functions.py \
    src/amorph_stats.py src/amorph_results.py src/amorph_archive.py \
    dist/windows/
 cp src/easy_data.txt dist/windows/
-ls -l dist/windows
+# The mingw-w64 runtime and winpthreads are linked into AMORPH.exe, so their
+# licences go with it (the release requires them)
+RUNTIME_LICENCE=/usr/share/doc/mingw-w64-x86-64-dev/copyright
+if [ -f "${RUNTIME_LICENCE}" ]; then
+    mkdir -p dist/windows/licenses
+    cp "${RUNTIME_LICENCE}" dist/windows/licenses/mingw-w64.txt
+else
+    echo "windows_cross: warning: no ${RUNTIME_LICENCE}" >&2
+fi
+ls -lR dist/windows
