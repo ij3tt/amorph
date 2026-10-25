@@ -105,9 +105,11 @@ def main():
     args = p.parse_args()
 
     saves = trim_outputs()
+    # Seed the random resampling, as showresults.py does
+    np.random.seed(amorph_stats.postprocessing_seed("config.yaml"))
     logz, information, _ = dn4.postprocess(plot=False)
 
-    x = np.loadtxt(args.data, comments="#")[:, 0]
+    x = amorph_stats.load_data(args.data)[0]
     n = x.size
 
     indices = dn4.load_column_names("posterior_sample.txt")["indices"]
@@ -119,7 +121,7 @@ def main():
 
     wide = curve("wide[0]")
     narrow = curve("narrow[0]")
-    fraction = amorph_stats.amorphous_fraction(wide, narrow)
+    fraction = amorph_stats.amorphous_fraction(wide, narrow, x)
     center, width, _, _ = amorph_stats.wide_component_shape(x, wide)
     has_wide = wide.sum(axis=1) > 0.0
 

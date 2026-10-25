@@ -1,6 +1,7 @@
 """
-Tests of the Python post-processing: src/amorph_stats.py, src/display.py
-and src/export_pgf.py. Run with pytest from the repository root:
+Tests of the Python post-processing: src/amorph_stats.py, src/display.py,
+src/export_pgf.py and the resampling of src/dnest_functions.py. Run with
+pytest from the repository root:
 
     python -m pytest tests
 """
@@ -23,14 +24,16 @@ sys.path.insert(0, os.path.join(ROOT, "src"))
 
 import amorph_stats
 import display
+import dnest_functions
 import export_pgf
 
 
-def make_run(folder, samples=20, without_wide=5):
+def make_run(folder, samples=20, without_wide=5, without_narrow=0):
     """
     A fake AMORPH run in folder: the data, posterior_sample.txt and
     config.yaml, made with scripts/make_demo_posterior.py. The wide
-    component is removed from the first `without_wide` posterior samples.
+    component is removed from the first `without_wide` posterior samples,
+    and the narrow one from the first `without_narrow`.
     """
     subprocess.run([sys.executable,
                     os.path.join(ROOT, "scripts", "make_demo_posterior.py"),
@@ -46,12 +49,147 @@ def make_run(folder, samples=20, without_wide=5):
 
     first = names.index("wide[0]")
     rows[:without_wide, first:first + n] = 0.0
+    first = names.index("narrow[0]")
+    rows[:without_narrow, first:first + n] = 0.0
 
     with open(os.path.join(str(folder), "posterior_sample.txt"), "w") as f:
         f.write(header)
         np.savetxt(f, rows, fmt="%.7e")
     with open(os.path.join(str(folder), "config.yaml"), "w") as f:
         f.write('data_file: "demo_data.txt"\n')
+
+
+def make_dnest4_output(folder, num_samples=300):
+    """
+    A small fake DNest4 output in folder (levels.txt, sample_info.txt,
+    sample.txt), enough for dnest_functions.postprocess.
+    """
+    rng = np.random.default_rng(1)
+    # log_X, log_likelihood, tiebreaker, accepts, tries, exceeds, visits
+    levels = np.array([[0.0, -1E300, 0.0, 0, 0, 0, 0],
+                       [-1.0, -50.0, 0.5, 10, 20, 0, 0],
+                       [-2.0, -20.0, 0.5, 10, 20, 0, 0],
+                       [-3.0, -10.0, 0.5, 10, 20, 0, 0]])
+    np.savetxt(os.path.join(str(folder), "levels.txt"), levels,
+               header="log_X, log_likelihood, tiebreaker, accepts, tries, "
+                      "exceeds, visits")
+
+    log_likelihood = rng.uniform(-60.0, -5.0, num_samples)
+    level = np.searchsorted(levels[:, 1], log_likelihood) - 1
+    info = np.column_stack([level, log_likelihood,
+                            rng.uniform(size=num_samples),
+                            np.zeros(num_samples)])
+    np.savetxt(os.path.join(str(folder), "sample_info.txt"), info,
+               header="level assignment, log likelihood, tiebreaker, ID.")
+    np.savetxt(os.path.join(str(folder), "sample.txt"),
+               rng.normal(size=(num_samples, 3)), header="a, b, c")
+
+
+def write_lines(path, lines):
+    with open(str(path), "w") as f:
+        f.write("\n".join(lines) + "\n")
+
+
+def data_lines(n, x0=10.0):
+    return ["{0:.2f} {1}".format(x0 + 0.02 * i, 40 + i) for i in range(n)]
+
+
+def test_load_data_follows_the_rules_of_the_sampler(tmp_path):
+    # As in tests/test_input.cpp: a byte order mark, CRLF line endings,
+    # comments and blank lines anywhere, tabs and commas as separators
+    lines = (["# Scan Data", "", "10.00 41", "10.02\t42", "10.04, 43",
+              "10.06 ,44", "   # a comment in between", "10.08 , 45"]
+             + data_lines(6, x0=10.10))
+    path = tmp_path / "data.txt"
+    path.write_bytes(("﻿" + "\r\n".join(lines) + "\r\n").encode("utf-8"))
+
+    x, y = amorph_stats.load_data(str(path))
+    assert x.size == 11
+    assert x[0] == 10.0 and y[0] == 41.0
+    assert x[2] == 10.04 and y[2] == 43.0
+    assert x[4] == 10.08 and y[4] == 45.0
+    assert x[-1] == pytest.approx(10.20)
+
+
+@pytest.mark.parametrize("lines, message", [
+    (["10.00 41", "10.02 abc"] + data_lines(10, x0=10.04),
+     "line 2: expected two numbers (x and y), got '10.02 abc'"),
+    (["10.00 41 5"] + data_lines(10, x0=10.02),
+     "line 1: expected two numbers (x and y), got '10.00 41 5'"),
+    (["1_000 41"] + data_lines(10, x0=10.02), "line 1: expected two numbers"),
+    (["nan 41"] + data_lines(10, x0=10.02), "line 1: expected two numbers"),
+    (["10.00 41", "10.02 42", "10.01 43"] + data_lines(10, x0=10.04),
+     "line 3: the x values must be strictly increasing, but x = 10.01 "
+     "follows x = 10.02 (line 2)"),
+    (data_lines(5), "found 5 data points, at least 10 are needed"),
+])
+def test_load_data_rejects_what_the_sampler_rejects(tmp_path, lines, message):
+    path = tmp_path / "data.txt"
+    write_lines(path, lines)
+    with pytest.raises(ValueError, match=re.escape(message)):
+        amorph_stats.load_data(str(path))
+
+
+def test_load_data_reads_the_bundled_datasets():
+    # The same counts and ranges as tests/test_input.cpp finds
+    datasets = {"0%glass_rhyolite_Emperyon.txt": (1731, 5.01313028, 49.99313028),
+                "50% glass .02step3secdwell.txt": (1501, 10.0, 40.0),
+                "90%_glass_basalt_Emperyon.txt": (1731, 5.01313028, 49.99313028),
+                "easy_data.txt": (1001, 0.0, 50.0),
+                "G30RAW_amorph.txt": (1001, 26.0, 46.0),
+                "N3RAW_amorph.txt": (1001, 26.0, 46.0)}
+    for name, (n, x_min, x_max) in datasets.items():
+        x, _ = amorph_stats.load_data(os.path.join(ROOT, "src", name))
+        assert (x.size, x[0], x[-1]) == (n, x_min, x_max), name
+
+
+def test_fraction_on_a_non_uniform_grid():
+    # Dense points on the left, sparse on the right; two Gaussians of equal
+    # area, the wide component on the left and the narrow one on the right
+    x = np.concatenate([np.arange(0.0, 10.0, 0.01), np.arange(10.0, 20.0, 0.1)])
+    wide = np.exp(-0.5 * (x - 5.0)**2)
+    narrow = np.exp(-0.5 * (x - 15.0)**2)
+
+    assert amorph_stats.amorphous_fraction(wide, narrow, x)[0] == \
+        pytest.approx(0.5, abs=1E-4)
+    # Plain sums count the dense points ten times over
+    assert amorph_stats.amorphous_fraction(wide, narrow)[0] > 0.9
+
+
+def test_shape_on_a_non_uniform_grid():
+    x = np.concatenate([np.arange(0.0, 25.0, 0.01), np.arange(25.0, 50.0, 0.2)])
+    gaussian = np.exp(-0.5 * (x - 25.0)**2 / 3.0**2)
+    center, width, skewness, nongaussianity = \
+        amorph_stats.wide_component_shape(x, gaussian)
+    assert center[0] == pytest.approx(25.0, abs=1E-3)
+    assert width[0] == pytest.approx(3.0, rel=1E-3)
+    assert skewness[0] == pytest.approx(0.0, abs=1E-3)
+    assert nongaussianity[0] == pytest.approx(0.0, abs=1E-4)
+
+
+def test_postprocessing_seed(tmp_path):
+    config = tmp_path / "config.yaml"
+    write_lines(config, ['data_file: "data.txt"', "seed: 7"])
+    assert amorph_stats.postprocessing_seed(str(config)) == 7
+    write_lines(config, ['data_file: "data.txt"'])
+    assert amorph_stats.postprocessing_seed(str(config)) == 0
+    assert amorph_stats.postprocessing_seed(str(tmp_path / "missing.yaml")) == 0
+
+
+def test_postprocessing_is_reproducible(tmp_path, monkeypatch):
+    make_dnest4_output(tmp_path)
+    monkeypatch.chdir(tmp_path)
+
+    def posterior(seed):
+        np.random.seed(seed)
+        dnest_functions.postprocess(plot=False)
+        plt.close("all")
+        with open("posterior_sample.txt") as f:
+            return f.read()
+
+    first = posterior(7)
+    assert posterior(7) == first
+    assert posterior(8) != first
 
 
 def test_fraction_without_wide_component_is_zero():
@@ -124,3 +262,19 @@ def test_export_pgf_reports_the_fraction_of_display(tmp_path, monkeypatch):
     assert match is not None
     assert float(match.group(1)) == pytest.approx(100.0 * fraction.mean(),
                                                   abs=0.051)
+
+
+def test_export_pgf_refuses_an_undefined_fraction(tmp_path, monkeypatch):
+    # No posterior sample has either component: the fraction is undefined,
+    # and must not be reported as 0%
+    make_run(tmp_path, samples=4, without_wide=4, without_narrow=4)
+    monkeypatch.chdir(tmp_path)
+    assert np.isnan(export_pgf.amorphous_fraction(np.zeros((4, 5)),
+                                                  np.zeros((4, 5))))
+
+    monkeypatch.setattr(sys, "argv",
+                        ["export_pgf.py", "--data", "demo_data.txt",
+                         "--posterior", "posterior_sample.txt",
+                         "--out", "pgf", "--samples", "2"])
+    with pytest.raises(SystemExit, match="amorphous fraction is undefined"):
+        export_pgf.main()
