@@ -52,18 +52,5 @@ Lookup::Lookup()
 
 }
 
-double Lookup::evaluate(double shape, double x)
-{
-	int i = (int)((shape - instance.shape_min) * instance.one_over_dshape);
-    int j = (int)((x - instance.x_min) * instance.one_over_dx);
-
-    double frac = (x - (instance.x_min + j*instance.dx))*instance.one_over_dx;
-
-	if(i < 0 || i >= instance.num_shape || j < 0 || j >= (instance.num_x - 1))
-		return 0.0;
-
-	return frac*instance.f[i][j+1] + (1.0 - frac)*instance.f[i][j];
-}
-
 } // namespace AMORPH
 
