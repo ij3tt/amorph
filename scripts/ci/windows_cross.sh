@@ -44,6 +44,7 @@ mkdir -p dist/windows
 cp build-win/AMORPH.exe dist/windows/
 cp src/OPTIONS src/OPTIONS_AGGRESSIVE src/config.yaml dist/windows/
 cp src/showresults.py src/display.py src/dnest_functions.py \
-   src/amorph_stats.py dist/windows/
+   src/amorph_stats.py src/amorph_results.py src/amorph_archive.py \
+   dist/windows/
 cp src/easy_data.txt dist/windows/
 ls -l dist/windows

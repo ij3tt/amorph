@@ -36,3 +36,4 @@ doc/figures/*
 demo/
 .pytest_cache/
 src/pgf/
+*.amorph

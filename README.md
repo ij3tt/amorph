@@ -51,11 +51,52 @@ be viewed by running the Python script `showresults.py`:
 python showresults.py
 ```
 
-Automatically generated figures may be closed or saved. Upon closing the
-figures, numerical results will be displayed in Anaconda prompt window,
-and a CSV file of (some) output will be written to the disk.
-Important: make sure to save the results or copy the output file before
-starting another run as results will otherwise be overwritten.
+It prints the report of the run: log(Z), the information and the
+effective sample size of the sampler, the amorphous fraction and the shape
+of the wide component (mean ± standard deviation over the posterior
+samples), and the diagnosis of the posterior (see "Diagnosing the
+posterior" below). It writes `macroquantities.csv`, one row per posterior
+sample, and a run archive (below), and then shows the figures one after
+another: the levels of the sampler, the compression and acceptance of the
+levels, the likelihood and the posterior weights against log(X), the model
+with its parts and the data, the residuals, and the histograms of the
+number of narrow peaks, of the amorphous fraction and of the centre,
+half-width, skewness and nongaussianity of the wide component.
+
+### Run archives
+
+The next run overwrites the output files, which take hundreds of
+megabytes or more. `showresults.py` therefore also stores the results in
+one compressed file in the folder of the run, named after the data file and
+the time of the last save, such as `easy_data_2026-10-25_1530.amorph`. It
+is a zip file of a few megabytes with
+
+* `report.html`: the report and all the figures, for a web browser;
+* `report.txt` and `summary.json`: the report as text, and its numbers for
+  programs;
+* `input/`: `config.yaml`, the DNest4 options and the data file, and
+  `dnest4/`: `levels.txt`, `sample_info.txt` and `weights.txt`;
+* `particles.csv`: one row per saved sample, with its parameters, log
+  likelihood, posterior weight, amorphous fraction and the shape of its
+  wide component; `posterior.csv`: the same for the posterior samples;
+* `peaks.npz`: the position, log amplitude and width of every peak of
+  every saved sample;
+* `curves.npz`: the posterior mean, the 5, 16, 50, 84 and 95% quantiles and
+  50 posterior samples of the background, the wide and narrow components
+  and the model.
+
+`README.txt` in the archive describes each file. To write an archive of a
+run folder, print the report of an archive or write its figures:
+
+```
+python amorph_archive.py RUN_FOLDER [--out FILE.amorph]
+python amorph_archive.py --show FILE.amorph
+python amorph_archive.py --figures FOLDER FILE.amorph
+```
+
+In Python, `amorph_archive.read("FILE.amorph")` gives back the results of
+the run, and `amorph_results.FIGURES` draws each figure of them on a
+matplotlib figure.
 
 Checks of the input files
 =========================
@@ -354,7 +395,9 @@ The repository is built on two CI services, which run the same scripts from
 * GitHub Actions (`.github/workflows/build.yml`), on pushes to master and on
   pull requests: builds the Linux executable and runs the tests and the smoke
   test on it, cross-compiles `AMORPH.exe` with mingw-w64 and runs the smoke
-  test on it on a Windows runner. Both executables are uploaded as artefacts.
+  test on it on a Windows runner, and builds and tests the macOS executable
+  (Apple Silicon) on a macOS runner. The executables and the run archive of
+  the Linux smoke test, with its figures, are uploaded as artefacts.
 * GitVerse CI (`.gitverse/workflows/build.yml`), on every push: the same
   Linux build and tests, and the cross-compiled `AMORPH.exe` as an artefact
   (kept for 7 days). GitVerse has no Windows runners, so the executable is

@@ -5,9 +5,10 @@ the data the same way as the sampler and report the same numbers.
 
 The curves of the wide (amorphous) and narrow (crystalline) components come
 from posterior_sample.txt, one row per posterior sample and one column per
-data point.
+data point. amorph_results.py builds the whole report of a run on them.
 """
 
+import os
 import re
 
 import numpy as np
@@ -173,3 +174,61 @@ def postprocessing_seed(config_file="config.yaml"):
     if isinstance(seed, bool) or not isinstance(seed, int):
         return 0
     return seed % 2**32
+
+
+def _complete_lines(lines, num_values):
+    """
+    The data lines (not comments) that were written completely: they end
+    with a newline and hold num_values values.
+    """
+    return [l for l in lines if not l.startswith("#")
+            and l.endswith("\n") and len(l.split()) == num_values]
+
+
+def trim_outputs(folder="."):
+    """
+    Make the output of a sampler that was stopped part-way consistent. Each
+    save appends a line to sample.txt and then one to sample_info.txt, so
+    the last of them may be cut off or missing: keep the samples that are
+    complete in both files. levels.txt is rewritten at every save, so its
+    last line may be cut off too. Returns the number of samples kept.
+    """
+    def path(name):
+        return os.path.join(folder, name)
+
+    with open(path("levels.txt")) as f:
+        lines = f.readlines()
+    levels = _complete_lines(lines, 7)
+    if not levels:
+        raise SystemExit("levels.txt holds no complete levels")
+    with open(path("levels.txt"), "w") as f:
+        f.writelines([l for l in lines if l.startswith("#")] + levels)
+
+    with open(path("sample_info.txt")) as f:
+        lines = f.readlines()
+    header = [l for l in lines if l.startswith("#")]
+    info = _complete_lines(lines, 4)
+
+    # Where the complete lines of sample.txt end. They hold as many values
+    # (each followed by a space) as the first one.
+    ends = []
+    num_values = None
+    offset = 0
+    with open(path("sample.txt"), "rb") as f:
+        for line in f:
+            offset += len(line)
+            if line.startswith(b"#"):
+                continue
+            if num_values is None:
+                num_values = line.count(b" ")
+            if not line.endswith(b"\n") or line.count(b" ") != num_values:
+                break
+            ends.append(offset)
+
+    keep = min(len(info), len(ends))
+    if keep == 0:
+        raise SystemExit("The sampler saved no complete samples")
+    with open(path("sample_info.txt"), "w") as f:
+        f.writelines(header + info[:keep])
+    os.truncate(path("sample.txt"), ends[keep - 1])
+    return keep

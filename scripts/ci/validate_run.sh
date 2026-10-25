@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #
 # CI: build the AMORPH sources in SRC_DIR, run them on one of the bundled
-# datasets and summarise the posterior in OUT_DIR/summary.json.
+# datasets, summarise the posterior in OUT_DIR/summary.json and archive the
+# run in OUT_DIR/run.amorph (src/amorph_archive.py).
 # Used by .github/workflows/validate.yml.
 #
 # Usage: scripts/ci/validate_run.sh SRC_DIR DATA_FILE SAVES MINUTES OUT_DIR \
@@ -85,6 +86,15 @@ progress() {
          "$(count_lines levels.txt) levels"
 }
 
+# Whether levels.txt is complete: it ends with a newline and every data line
+# holds 7 values. DNest4 rewrites it at every save, so a sampler killed at
+# the wrong moment leaves it cut off or empty.
+levels_complete() {
+    [ -s levels.txt ] && [ -z "$(tail -c 1 levels.txt)" ] \
+        && awk '!/^#/ { n++; if (NF != 7) bad = 1 }
+                END { exit !(n > 0 && !bad) }' levels.txt
+}
+
 start=$(date +%s)
 "${SRC}/build/AMORPH" > run.log &
 pid=$!
@@ -104,6 +114,15 @@ while kill -0 "${pid}" 2>/dev/null; do
             && kill -0 "${pid}" 2>/dev/null; then
         echo "validate: the time budget of ${MINUTES} minutes is used up," \
              "stopping the sampler"
+        # A complete copy of levels.txt, read again for a moment if the
+        # sampler is rewriting it, to put back if the kill cuts the file
+        for _ in $(seq 100); do
+            if levels_complete; then
+                cp levels.txt levels.complete
+                break
+            fi
+            sleep 0.01
+        done
         kill "${pid}" 2>/dev/null || true
         stopped="--stopped"
         break
@@ -112,6 +131,11 @@ done
 
 code=0
 wait "${pid}" || code=$?
+if [ -n "${stopped}" ] && ! levels_complete && [ -f levels.complete ]; then
+    echo "validate: the kill cut off levels.txt; using the copy taken" \
+         "just before it"
+    cp levels.complete levels.txt
+fi
 seconds=$(( $(date +%s) - start ))
 progress
 tail -n 3 run.log
@@ -124,5 +148,5 @@ fi
 echo "validate: post-processing"
 MPLBACKEND=Agg python3 "${REPO_ROOT}/scripts/ci/summarize_run.py" \
     --data "${DATA}" --seconds "${seconds}" ${stopped} \
-    --out "${OUT}/summary.json"
+    --out "${OUT}/summary.json" --archive "${OUT}/run.amorph"
 cat "${OUT}/summary.json"

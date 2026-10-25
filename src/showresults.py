@@ -12,8 +12,10 @@ import amorph_stats
 # The post-processing resamples the saved particles at random: seed it, so
 # that the same run always gives the same posterior samples
 np.random.seed(amorph_stats.postprocessing_seed("config.yaml"))
-dn4.postprocess()
+
+# Writes posterior_sample.txt. Its figures and numbers are part of the
+# report of display.py.
+dn4.postprocess(plot=False, verbose=False)
 
 import display
 display.display()
-

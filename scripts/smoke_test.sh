@@ -48,14 +48,14 @@ levels.txt	# file for information about the levels
 EOF
 
 # Point the config at the example data and the smoke-test options, whatever
-# src/config.yaml names, and keep the run small.
-sed -i \
-    -e 's/^data_file: .*/data_file: "easy_data.txt"/' \
+# src/config.yaml names, and keep the run small. (Not sed -i, which differs
+# between GNU and BSD sed, on macOS.)
+sed -e 's/^data_file: .*/data_file: "easy_data.txt"/' \
     -e 's/^num_threads: .*/num_threads: 2/' \
     -e 's/^dnest4_options_file: .*/dnest4_options_file: "OPTIONS_SMOKE"/' \
     -e 's/^    max_num_narrow_peaks: .*/    max_num_narrow_peaks: 20/' \
     -e 's/^    max_num_wide_peaks: .*/    max_num_wide_peaks: 10/' \
-    "${WORK}/config.yaml"
+    "${REPO_ROOT}/src/config.yaml" > "${WORK}/config.yaml"
 
 # A config.yaml that names a missing data file must stop AMORPH at once with
 # exit status 1 and an error message on stderr. On Windows this also checks
@@ -121,7 +121,9 @@ if command -v python3 >/dev/null 2>&1; then
         echo "smoke_test: running the Python post-processing..."
         cp "${REPO_ROOT}/src/showresults.py" "${REPO_ROOT}/src/display.py" \
            "${REPO_ROOT}/src/dnest_functions.py" \
-           "${REPO_ROOT}/src/amorph_stats.py" "${WORK}/"
+           "${REPO_ROOT}/src/amorph_stats.py" \
+           "${REPO_ROOT}/src/amorph_results.py" \
+           "${REPO_ROOT}/src/amorph_archive.py" "${WORK}/"
         ( cd "${WORK}" && MPLBACKEND=Agg python3 showresults.py > postprocess.log 2>&1 ) \
             || { echo "smoke_test: FAILED - post-processing crashed" >&2; \
                  tail -n 40 "${WORK}/postprocess.log" >&2; exit 1; }
@@ -130,6 +132,11 @@ if command -v python3 >/dev/null 2>&1; then
             exit 1
         fi
         echo "smoke_test: posterior_sample.txt OK"
+        if ! ls "${WORK}"/easy_data_*.amorph >/dev/null 2>&1; then
+            echo "smoke_test: FAILED - no run archive (.amorph)" >&2
+            exit 1
+        fi
+        echo "smoke_test: run archive OK"
     else
         echo "smoke_test: Python post-processing skipped (missing numpy/matplotlib/pandas/yaml)"
     fi

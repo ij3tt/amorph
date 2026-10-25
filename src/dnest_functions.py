@@ -122,46 +122,14 @@ def logdiffexp(x1, x2):
 	return result
 
 
-def postprocess(temperature=1., numResampleLogX=1, plot=True, loaded=[], \
-			cut=0., save=True, zoom_in=True, compression_bias_min=1., verbose=True,\
-			compression_scatter=0., moreSamples=1., compression_assert=None, single_precision=False):
-	if len(loaded) == 0:
-		levels_orig = np.atleast_2d(my_loadtxt("levels.txt"))
-		sample_info = np.atleast_2d(my_loadtxt("sample_info.txt"))
-	else:
-		levels_orig, sample_info = loaded[0], loaded[1]
-
-	# Remove regularisation from levels_orig if we asked for it
-	if compression_assert is not None:
-		levels_orig[1:,0] = -np.cumsum(compression_assert*np.ones(levels_orig.shape[0] - 1))
-
-	cut = int(cut*sample_info.shape[0])
-	sample_info = sample_info[cut:, :]
-
-	if plot:
-		plt.figure(1)
-		plt.plot(sample_info[:,0], "k")
-		plt.xlabel("Iteration")
-		plt.ylabel("Level")
-
-		plt.figure(2)
-		plt.subplot(2,1,1)
-		plt.plot(np.diff(levels_orig[:,0]), "k")
-		plt.ylabel("Compression")
-		plt.xlabel("Level")
-		xlim = plt.gca().get_xlim()
-		plt.axhline(-1., color='g')
-		plt.axhline(-np.log(10.), color='g', linestyle="--")
-		plt.ylim(top=0.05)
-
-		plt.subplot(2,1,2)
-		good = np.nonzero(levels_orig[:,4] > 0)[0]
-		plt.plot(levels_orig[good,3]/levels_orig[good,4], "ko-")
-		plt.xlim(xlim)
-		plt.ylim([0., 1.])
-		plt.xlabel("Level")
-		plt.ylabel("MH Acceptance")
-
+def log_x_and_weights(levels_orig, sample_info, temperature=1.,
+			numResampleLogX=1, compression_bias_min=1., compression_scatter=0.):
+	"""
+	The log(X) and the posterior weight of each sample, as postprocess
+	assigns them, for each of numResampleLogX perturbations of the
+	compressions of the levels (one column each), with the estimates of
+	log(Z) and of the information and the perturbed levels.
+	"""
 	# Convert to lists of tuples
 	logl_levels = [(levels_orig[i,1], levels_orig[i, 2]) for i in range(0, levels_orig.shape[0])] # logl, tiebreaker
 	logl_samples = [(sample_info[i, 1], sample_info[i, 2], i) for i in range(0, sample_info.shape[0])] # logl, tiebreaker, id
@@ -171,6 +139,7 @@ def postprocess(temperature=1., numResampleLogX=1, plot=True, loaded=[], \
 	P_samples = np.zeros((sample_info.shape[0], numResampleLogX))
 	logz_estimates = np.zeros((numResampleLogX, 1))
 	H_estimates = np.zeros((numResampleLogX, 1))
+	resampled_levels = []
 
 	# Find sandwiching level for each sample
 	sandwich = sample_info[:,0].copy().astype('int')
@@ -236,7 +205,58 @@ def postprocess(temperature=1., numResampleLogX=1, plot=True, loaded=[], \
 		logP_samples[:,z] -= logz_estimates[z]
 		P_samples[:,z] = np.exp(logP_samples[:,z])
 		H_estimates[z] = -logz_estimates[z] + np.sum(P_samples[:,z]*logl)
+		resampled_levels.append(levels)
 
+	return logx_samples, P_samples, logz_estimates, H_estimates, \
+		resampled_levels
+
+
+def postprocess(temperature=1., numResampleLogX=1, plot=True, loaded=[], \
+			cut=0., save=True, zoom_in=True, compression_bias_min=1., verbose=True,\
+			compression_scatter=0., moreSamples=1., compression_assert=None, single_precision=False):
+	if len(loaded) == 0:
+		levels_orig = np.atleast_2d(my_loadtxt("levels.txt"))
+		sample_info = np.atleast_2d(my_loadtxt("sample_info.txt"))
+	else:
+		levels_orig, sample_info = loaded[0], loaded[1]
+
+	# Remove regularisation from levels_orig if we asked for it
+	if compression_assert is not None:
+		levels_orig[1:,0] = -np.cumsum(compression_assert*np.ones(levels_orig.shape[0] - 1))
+
+	cut = int(cut*sample_info.shape[0])
+	sample_info = sample_info[cut:, :]
+
+	if plot:
+		plt.figure(1)
+		plt.plot(sample_info[:,0], "k")
+		plt.xlabel("Iteration")
+		plt.ylabel("Level")
+
+		plt.figure(2)
+		plt.subplot(2,1,1)
+		plt.plot(np.diff(levels_orig[:,0]), "k")
+		plt.ylabel("Compression")
+		plt.xlabel("Level")
+		xlim = plt.gca().get_xlim()
+		plt.axhline(-1., color='g')
+		plt.axhline(-np.log(10.), color='g', linestyle="--")
+		plt.ylim(top=0.05)
+
+		plt.subplot(2,1,2)
+		good = np.nonzero(levels_orig[:,4] > 0)[0]
+		plt.plot(levels_orig[good,3]/levels_orig[good,4], "ko-")
+		plt.xlim(xlim)
+		plt.ylim([0., 1.])
+		plt.xlabel("Level")
+		plt.ylabel("MH Acceptance")
+
+	logx_samples, P_samples, logz_estimates, H_estimates, resampled_levels = \
+		log_x_and_weights(levels_orig, sample_info, temperature,
+			numResampleLogX, compression_bias_min, compression_scatter)
+
+	for z in range(0, numResampleLogX):
+		levels = resampled_levels[z]
 		if plot:
 			plt.figure(3)
 
