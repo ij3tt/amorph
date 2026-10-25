@@ -364,7 +364,9 @@ The repository is built on two CI services, which run the same scripts from
 * GitHub Actions (`.github/workflows/build.yml`), on pushes to master and on
   pull requests: builds the Linux executable and runs the tests and the smoke
   test on it, cross-compiles `AMORPH.exe` with mingw-w64 and runs the smoke
-  test on it on a Windows runner. Both executables are uploaded as artefacts.
+  test on it on a Windows runner, and builds and tests the macOS executable
+  (Apple Silicon) on a macOS runner. The executables and the run archive of
+  the Linux smoke test, with its figures, are uploaded as artefacts.
 * GitVerse CI (`.gitverse/workflows/build.yml`), on every push: the same
   Linux build and tests, and the cross-compiled `AMORPH.exe` as an artefact
   (kept for 7 days). GitVerse has no Windows runners, so the executable is
