@@ -115,11 +115,9 @@ def pick_rows(n_total, n_wanted):
 
 
 def write_table(filename, header, columns):
-    """
-    Write a whitespace separated table with a '%' comment on the first line.
-    """
+    """Write a whitespace separated table with column names on the first line."""
     with open(filename, "w") as f:
-        f.write("% " + header + "\n")
+        f.write(header + "\n")
         np.savetxt(f, columns, fmt="%.6g")
 
 
@@ -218,10 +216,10 @@ def main():
     # Tables
     # ------------------------------------------------------------------
     write_table(os.path.join(args.out, "xrd_data.dat"),
-                "x y", np.column_stack((x, y)))
+                "x intensity", np.column_stack((x, y)))
 
     write_table(os.path.join(args.out, "xrd_mean.dat"),
-                "x model amorph xtal bg",
+                "x model amorph xtal background",
                 np.column_stack((x, mean_model, mean_wide, mean_narrow,
                                  mean_bg)))
 
@@ -239,7 +237,7 @@ def main():
                             ("xrd_samples_amorph.dat", wide),
                             ("xrd_samples_xtal.dat", narrow)):
             cols = np.column_stack([xs] + [block[r][sel] for r in rows])
-            header = "x " + " ".join("s{0}".format(i + 1)
+            header = "x " + " ".join("sample{0}".format(i + 1)
                                      for i in range(len(rows)))
             write_table(os.path.join(args.out, name), header, cols)
 

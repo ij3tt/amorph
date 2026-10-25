@@ -263,6 +263,13 @@ def test_export_pgf_reports_the_fraction_of_display(tmp_path, monkeypatch):
                          "--out", "pgf", "--samples", "2"])
     export_pgf.main()
 
+    with open(os.path.join("pgf", "xrd_data.dat")) as f:
+        assert f.readline() == "x intensity\n"
+    with open(os.path.join("pgf", "xrd_mean.dat")) as f:
+        assert f.readline() == "x model amorph xtal background\n"
+    with open(os.path.join("pgf", "xrd_samples_model.dat")) as f:
+        assert f.readline() == "x sample1 sample2\n"
+
     with open(os.path.join("pgf", "xrd_meta.tex")) as f:
         meta = f.read()
     match = re.search(r"\\xrdamorph\{([0-9.]+)\\%\}", meta)

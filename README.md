@@ -584,6 +584,11 @@ The tables that are written into `doc/figures/pgf/` are
 | `xrd_samples.tex` | the `\addplot` commands for the faint sample curves |
 | `xrd_meta.tex` | LaTeX macros: axis limits, title, amorphous fraction |
 
+The first line of every `.dat` file contains column names without a comment
+prefix, for example `x model amorph xtal background`. The tables can therefore
+be imported not only into PGFPlots, but also into Origin or LabPlot by selecting
+the first line as the header and whitespace as the separator.
+
 Useful options of `export_pgf.py`:
 
 * `--title` sets the title of the figure (it is LaTeX markup, by default the
