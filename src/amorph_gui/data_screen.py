@@ -35,7 +35,6 @@ class NumberBox(QDoubleSpinBox):
         self.setRange(low, high)
         self.setSingleStep(step)
         self.setKeyboardTracking(False)
-        self.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.NoButtons)
 
     def textFromValue(self, value):
         text = "{0:.6f}".format(value).rstrip("0").rstrip(".")
@@ -46,7 +45,6 @@ def _count_box(low, high):
     box = QSpinBox()
     box.setRange(low, high)
     box.setKeyboardTracking(False)
-    box.setButtonSymbols(QSpinBox.ButtonSymbols.NoButtons)
     return box
 
 

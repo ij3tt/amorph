@@ -153,11 +153,14 @@ QLineEdit, QAbstractSpinBox, QComboBox {{ background: {SURFACE};
     border: 1px solid {FIELD_LINE}; border-radius: 6px; padding: 6px 8px;
     font-family: {MONO_CSS}; selection-background-color: {ACCENT}; }}
 QComboBox {{ font-family: {SANS_CSS}; }}
-/* A number field has no buttons (NoButtons) and no padding of its own: its
-   editor, laid out in the field, takes the padding, and the look of the
-   field rather than that of a field of its own, which would push the text
-   out of sight */
+/* A number field has no padding of its own: its editor, laid out in the
+   field, takes the padding, and the look of the field rather than that of
+   a field of its own, which would push the text out of sight. Its buttons
+   are hidden here, by a width of 0: with setButtonSymbols(NoButtons) under
+   a style sheet, Qt gives the editor a width of 1 pixel. */
 QAbstractSpinBox {{ padding: 0; min-height: 32px; }}
+QAbstractSpinBox::up-button, QAbstractSpinBox::down-button {{ width: 0;
+    border: none; }}
 QAbstractSpinBox QLineEdit, QComboBox QLineEdit,
 QLineEdit#qt_spinbox_lineedit {{ border: none; padding: 0 8px; margin: 0;
     background: transparent; }}
