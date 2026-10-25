@@ -8,6 +8,6 @@
     {"id": "speed-g50", "narrow": 500, "wide": 100, "nu": "[1.0, 100.0]", "control_points": "[10.0, 40.0]",
      "datasets": ["50% glass .02step3secdwell.txt"]}
   ],
-  "fraction_range": "26 40",
+  "fraction_range": "26 46",
   "replicate": [1, 2, 3, 4]
 }
