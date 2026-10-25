@@ -203,4 +203,5 @@ def test_number_fields_show_their_values(form):
         assert editor.isVisible()
         assert editor.height() >= editor.fontMetrics().height(), \
             (editor.geometry(), box.geometry())
-        assert editor.width() > editor.fontMetrics().horizontalAdvance("00")
+        assert editor.width() > editor.fontMetrics().horizontalAdvance(
+            "00"), (editor.geometry(), box.geometry())

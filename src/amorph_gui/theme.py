@@ -153,18 +153,19 @@ QLineEdit, QAbstractSpinBox, QComboBox {{ background: {SURFACE};
     border: 1px solid {FIELD_LINE}; border-radius: 6px; padding: 6px 8px;
     font-family: {MONO_CSS}; selection-background-color: {ACCENT}; }}
 QComboBox {{ font-family: {SANS_CSS}; }}
-QAbstractSpinBox {{ min-height: 20px; }}
+/* A number field has no buttons (NoButtons) and no padding of its own: its
+   editor, laid out in the field, takes the padding, and the look of the
+   field rather than that of a field of its own, which would push the text
+   out of sight */
+QAbstractSpinBox {{ padding: 0; min-height: 32px; }}
+QAbstractSpinBox QLineEdit, QComboBox QLineEdit,
+QLineEdit#qt_spinbox_lineedit {{ border: none; padding: 0 8px; margin: 0;
+    background: transparent; }}
 QLineEdit:focus, QAbstractSpinBox:focus, QComboBox:focus {{
     border: 1px solid {ACCENT}; }}
-/* The editor inside a number field takes the look of the field, not that
-   of a field of its own, which would push the text out of sight */
-QAbstractSpinBox QLineEdit, QComboBox QLineEdit,
-QLineEdit#qt_spinbox_lineedit {{ border: none; padding: 0; margin: 0;
-    background: transparent; min-height: 0; }}
+QAbstractSpinBox QLineEdit:focus {{ border: none; }}
 QLineEdit:disabled, QAbstractSpinBox:disabled {{ color: {MUTED};
     background: {GROUND}; }}
-QAbstractSpinBox::up-button, QAbstractSpinBox::down-button {{ width: 0;
-    border: none; }}
 QComboBox::drop-down {{ border: none; width: 26px; }}
 QComboBox QAbstractItemView {{ background: {SURFACE}; border: 1px solid
     {LINE}; selection-background-color: {ACCENT_SOFT};
