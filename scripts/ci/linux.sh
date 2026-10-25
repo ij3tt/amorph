@@ -27,7 +27,8 @@ bash scripts/smoke_test.sh build/AMORPH build/smoke
 
 # The diagnosis of the posterior, on the output of the smoke test
 python3 scripts/diagnose_posterior.py build/smoke \
-    --data build/smoke/easy_data.txt --json build/smoke/diagnosis.json
+    --data build/smoke/easy_data.txt --json build/smoke/diagnosis.json \
+    --range 10 40
 
 # Tests of the Python post-processing
 MPLBACKEND=Agg python3 -m pytest -q tests

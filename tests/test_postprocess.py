@@ -1,11 +1,12 @@
 """
 Tests of the Python post-processing: src/amorph_stats.py, src/display.py,
-src/export_pgf.py and the resampling of src/dnest_functions.py. Run with
-pytest from the repository root:
+src/export_pgf.py, the resampling of src/dnest_functions.py and
+scripts/diagnose_posterior.py. Run with pytest from the repository root:
 
     python -m pytest tests
 """
 
+import json
 import os
 import re
 import subprocess
@@ -136,7 +137,13 @@ def test_load_data_reads_the_bundled_datasets():
                 "50% glass .02step3secdwell.txt": (1501, 10.0, 40.0),
                 "90%_glass_basalt_Emperyon.txt": (1731, 5.01313028, 49.99313028),
                 "easy_data.txt": (1001, 0.0, 50.0),
+                "G30RAW.txt": (3251, 5.0, 70.0),
+                "G30RAW_15-70.txt": (2751, 15.0, 70.0),
+                "G30RAW_20-50.txt": (1501, 20.0, 50.0),
                 "G30RAW_amorph.txt": (1001, 26.0, 46.0),
+                "N3RAW.txt": (3251, 5.0, 70.0),
+                "N3RAW_15-70.txt": (2751, 15.0, 70.0),
+                "N3RAW_20-50.txt": (1501, 20.0, 50.0),
                 "N3RAW_amorph.txt": (1001, 26.0, 46.0)}
     for name, (n, x_min, x_max) in datasets.items():
         x, _ = amorph_stats.load_data(os.path.join(ROOT, "src", name))
@@ -278,3 +285,42 @@ def test_export_pgf_refuses_an_undefined_fraction(tmp_path, monkeypatch):
                          "--out", "pgf", "--samples", "2"])
     with pytest.raises(SystemExit, match="amorphous fraction is undefined"):
         export_pgf.main()
+
+
+def test_diagnose_gives_the_fraction_within_a_range(tmp_path):
+    # Every particle has the wide component inside [20, 30] and the narrow
+    # one outside: the fraction within the range is 1, over all the data less
+    x = np.arange(10.0, 40.0, 0.02)
+    n = x.size
+    wide = np.exp(-0.5 * ((x - 25.0) / 1.5)**2)
+    narrow = np.exp(-0.5 * ((x - 35.0) / 0.2)**2)
+    names = (["num_peaks1", "num_peaks2", "max_num_peaks1", "max_num_peaks2",
+              "peak_shape", "nu", "sigma0", "sigma1", "background"]
+             + ["wide[{0}]".format(i) for i in range(n)]
+             + ["narrow[{0}]".format(i) for i in range(n)]
+             + ["model_curve[{0}]".format(i) for i in range(n)])
+    row = np.concatenate([[1, 1, 10, 10, 0.0, 10.0, 1.0, 0.1, 0.0],
+                          wide, narrow, wide + narrow])
+    samples = np.tile(row, (20, 1))
+    for name in ("sample.txt", "posterior_sample.txt"):
+        np.savetxt(str(tmp_path / name), samples, header=", ".join(names))
+    np.savetxt(str(tmp_path / "sample_info.txt"),
+               np.column_stack([np.zeros(20), np.linspace(-10.0, -1.0, 20),
+                                np.zeros(20), np.zeros(20)]),
+               header="level assignment, log likelihood, tiebreaker, ID.")
+    np.savetxt(str(tmp_path / "weights.txt"), np.full(20, 0.05))
+    np.savetxt(str(tmp_path / "data.txt"), np.column_stack([x, wide + narrow]))
+
+    subprocess.run([sys.executable,
+                    os.path.join(ROOT, "scripts", "diagnose_posterior.py"),
+                    str(tmp_path), "--data", str(tmp_path / "data.txt"),
+                    "--json", str(tmp_path / "diagnosis.json"),
+                    "--range", "20", "30"], check=True)
+    with open(str(tmp_path / "diagnosis.json")) as f:
+        diagnosis = json.load(f)
+
+    whole = amorph_stats.amorphous_fraction(wide, narrow, x)[0]
+    assert whole < 0.9
+    assert diagnosis["fraction"]["q50"] == pytest.approx(whole)
+    assert diagnosis["fraction_in_range"]["range"] == [20.0, 30.0]
+    assert diagnosis["fraction_in_range"]["q50"] == pytest.approx(1.0)
