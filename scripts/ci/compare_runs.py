@@ -54,7 +54,11 @@ def main():
         if len(parts) != 3 or not os.path.isfile(path):
             continue
         with open(path) as f:
-            runs[(parts[2], parts[1])] = json.load(f)
+            run = json.load(f)
+        # The speed of the sampler
+        if run.get("seconds"):
+            run["saves_per_minute"] = 60.0 * run["saves"] / run["seconds"]
+        runs[(parts[2], parts[1])] = run
 
     print("## AMORPH validation: reference vs tested version")
     print()
@@ -65,6 +69,10 @@ def main():
           "real cannot be read off them. Each version ran once per dataset; "
           "repeat the runs with different seeds (as experiment.yml does) to "
           "see the run-to-run spread.")
+    print()
+    print("Saves per minute is the speed of the sampler. A run slows down "
+          "as it goes on, so compare it between runs that reached the same "
+          "number of saves.")
     print()
 
     for dataset in sorted({d for d, _ in runs}):
@@ -83,7 +91,8 @@ def main():
                            ("stopped", "stopped by the time budget"),
                            ("n_posterior", "posterior samples"),
                            ("log_z", "log(Z)"),
-                           ("seconds", "sampler run time (s)")]:
+                           ("seconds", "sampler run time (s)"),
+                           ("saves_per_minute", "saves per minute")]:
             print("| {0} | {1} | {2} |".format(label, cell(ref, key),
                                                cell(test, key)))
         print()
