@@ -98,6 +98,80 @@ In Python, `amorph_archive.read("FILE.amorph")` gives back the results of
 the run, and `amorph_results.FIGURES` draws each figure of them on a
 matplotlib figure.
 
+The graphical interface
+=======================
+
+`src/amorph_gui` is a desktop program for all of the above: it opens a
+data file, sets up and runs the sampler for one or more seeds, and shows
+and compares the results. Its text is in Russian (all of it is in
+`src/amorph_gui/strings.py`, so that it can be translated). It needs
+PySide6 and pyqtgraph besides the packages of the post-processing, and
+the AMORPH executable (see "Using the source code"):
+
+```
+pip install PySide6 pyqtgraph
+cd src
+python -m amorph_gui [FILE]
+```
+
+`FILE`, if given, is a data file or a run archive to open. The program
+runs the AMORPH executable that is next to it (in `src/`, or in `build/`
+of a CMake build of the repository) or on the PATH, unless «Настройки…»
+(or `--amorph PATH`) names another. There is no packaged version of the
+program yet.
+
+It has four screens, listed on the left:
+
+* «Данные и модель»: the data file, read with the rules of the sampler
+  (an error names the file and the line), on a plot on which the range to
+  analyse and the two background control points are dragged. A band
+  shows where the wide peaks may be (`left_edge` and `right_edge`, as
+  fractions of the analysed range). The form has every setting of
+  `config.yaml`, with the limits that AMORPH enforces, the DNest4 options
+  file (`OPTIONS_AGGRESSIVE` or `OPTIONS`) with its maximum number of
+  saves, and the number of seeds; it starts with `narrow_peak_nu: [1.0,
+  100.0]`. Before a run it checks that the control points lie in the
+  analysed range, warns when the data do not reach beyond them on either
+  side or when the lower bound of ν is below 1 (see "Recommended settings
+  and calibration"), and starts nothing while there is an error.
+  «Загрузить config.yaml…» and «Сохранить config.yaml…» read and write
+  the settings.
+* «Прогоны»: each seed gets a folder `runs/<date>_<data>_seed<k>/` (in
+  the folder set in «Настройки…», by default `runs/` in the current one)
+  with `config.yaml`, the options file and the points of the analysed
+  range: AMORPH has no setting for the range, so the program writes them
+  there. The seeds (seed, seed + 1, ...) run one after another. The
+  screen shows the number of saves and levels and the time, the output of
+  the sampler (also kept in the folder as `run.log`) and the model curve
+  of the last saved sample. «Остановить» stops the sampler, keeps its
+  complete saves, post-processes them and marks the run as incomplete;
+  the seeds still waiting are cancelled.
+* «Результаты»: each run is post-processed as `showresults.py` does it,
+  and its archive is written in its folder. The tabs: «Итог», the median
+  of the amorphous fraction with its 50% and 90% intervals, cards for the
+  diagnosis (red when more than 5% of the posterior weight has a fraction
+  below 0.2; amber when more than 5% is at the cap of narrow peaks, when
+  the control points lie outside the data, or when the run stopped before
+  its planned number of saves) and the effective sample size; «Модель»,
+  «Распределения» and «Сэмплер», the figures of `showresults.py` (the
+  last with log(Z), the information and the effective sample size); and
+  «Полный отчёт», the report. Each figure saves as PNG, and the archive
+  and the posterior samples (CSV) save too.
+* «Сравнение»: a table of run archives, such as the seeds of a batch
+  (added when the batch ends) or the `run.amorph` files that the
+  experiment and validate workflows upload. Per archive: the data file,
+  the settings, the seed, the median of the fraction with its 50%
+  interval, also drawn as a bar on a scale common to all rows, and the
+  posterior weight below 0.2 and at the cap. It exports as CSV and
+  Markdown.
+
+«Открыть архив…», on every screen, shows an archive on «Результаты».
+As «Итог» says, the fraction is a ratio of integrated intensities, not a
+mass fraction, and the spread between seeds is the run-to-run error of
+the sampler, not the posterior interval (see "Recommended settings and
+calibration"). The numbers and figures are those of `amorph_stats.py`,
+`amorph_results.py` and `amorph_archive.py`.
+
 Checks of the input files
 =========================
 
@@ -356,6 +430,29 @@ shapes, and `tests/test_input.cpp` the checks of the data file and of
 python -m pytest tests
 ```
 
+### Tests of the graphical interface
+
+`tests/gui/` tests the GUI without a screen: the form writes and reads
+`config.yaml` back unchanged, the checks before a run, an archive of the
+fake run of `tests/test_results.py` on «Результаты», the comparison table,
+and the runs, stops and failures of a fake sampler. They need PySide6,
+pyqtgraph and pytest-qt, and are skipped without them:
+
+```bash
+QT_QPA_PLATFORM=offscreen python -m pytest tests/gui
+```
+
+The self-test runs the bundled `easy_data.txt` with the tiny DNest4
+options of the smoke test through the GUI itself: two seeds to the end
+and a third that it stops, their post-processing and archives, the
+comparison and an archive opened again. It saves a screenshot of every
+screen to the folder it is given, and the runs to `runs/` in it:
+
+```bash
+cd src
+QT_QPA_PLATFORM=offscreen python -m amorph_gui --self-test ../build/gui-self-test --amorph ../build/AMORPH
+```
+
 ### Continuous integration
 
 The repository is built on two CI services, which run the same scripts from
@@ -366,7 +463,10 @@ The repository is built on two CI services, which run the same scripts from
   test on it, cross-compiles `AMORPH.exe` with mingw-w64 and runs the smoke
   test on it on a Windows runner, and builds and tests the macOS executable
   (Apple Silicon) on a macOS runner. The executables and the run archive of
-  the Linux smoke test, with its figures, are uploaded as artefacts.
+  the Linux smoke test, with its figures, are uploaded as artefacts. A
+  fifth job runs the tests of the graphical interface and its self-test
+  on Linux without a screen (`scripts/ci/gui.sh`) and uploads the
+  screenshots and the archives of the self-test (`gui-screenshots`).
 * GitVerse CI (`.gitverse/workflows/build.yml`), on every push: the same
   Linux build and tests, and the cross-compiled `AMORPH.exe` as an artefact
   (kept for 7 days). GitVerse has no Windows runners, so the executable is
