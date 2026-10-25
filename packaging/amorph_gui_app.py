@@ -11,12 +11,12 @@ import os
 import sys
 import tempfile
 
-if sys.stdout is None or sys.stderr is None:
-    log = open(os.environ.get("AMORPH_GUI_LOG")
-               or os.path.join(tempfile.gettempdir(), "amorph_gui.log"),
+log_name = os.environ.get("AMORPH_GUI_LOG")
+if log_name or sys.stdout is None or sys.stderr is None:
+    log = open(log_name or os.path.join(tempfile.gettempdir(), "amorph_gui.log"),
                "a", encoding="utf-8", buffering=1)
-    sys.stdout = sys.stdout or log
-    sys.stderr = sys.stderr or log
+    sys.stdout = log
+    sys.stderr = log
 
 from amorph_gui.__main__ import main  # noqa: E402
 
