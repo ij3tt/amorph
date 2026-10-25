@@ -1,0 +1,63 @@
+name: Release
+
+# Mirror the tested packages of the corresponding GitHub Release. GitVerse
+# has Linux runners only, so the macOS packages cannot be rebuilt here.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  release:
+    name: Mirror the GitHub Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the version and read the release notes
+        id: notes
+        shell: bash
+        run: |
+          version="$(sed -n 's/^project(AMORPH VERSION \([0-9.]*\).*/\1/p' \
+                     CMakeLists.txt)"
+          if [ "${TAG}" != "v${version}" ]; then
+              echo "::error::Run this workflow on tag v${version}, not ${TAG}"
+              exit 1
+          fi
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          bash scripts/ci/release_notes.sh "${TAG}" > notes.md
+          {
+              echo 'body<<AMORPH_RELEASE_NOTES'
+              cat notes.md
+              echo 'AMORPH_RELEASE_NOTES'
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Download and verify the GitHub Release
+        shell: bash
+        run: bash scripts/ci/download_release.sh "${TAG}" release
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '>=1.23'
+
+      - name: Create or update the GitVerse Release
+        uses: actions/create-release@v1
+        with:
+          api_key: ${{ secrets.GITVERSE_API_KEY }}
+          title: AMORPH ${{ steps.notes.outputs.version }}
+          body: ${{ steps.notes.outputs.body }}
+          files: |
+            release/AMORPH-${{ env.TAG }}-windows-x64.zip
+            release/AMORPH-${{ env.TAG }}-linux-x64.tar.gz
+            release/AMORPH-${{ env.TAG }}-macos-arm64.zip
+            release/AMORPH-GUI-${{ env.TAG }}-windows-x64.zip
+            release/AMORPH-GUI-${{ env.TAG }}-linux-x64.tar.gz
+            release/AMORPH-GUI-${{ env.TAG }}-macos-arm64.zip
+            release/AMORPH-${{ env.TAG }}-SHA256SUMS.txt
+          draft: false
+          pre_release: false

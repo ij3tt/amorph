@@ -627,6 +627,14 @@ version 1.2.0:
    in `CHANGELOG.md`; an annotated tag whose message has more than one line
    (`git tag -a v1.2.0`) gives its message as the notes instead.
 
+`.gitverse/workflows/release.yml` mirrors the release to GitVerse when the
+same tag is pushed: it downloads the GitHub Release files, verifies their
+SHA-256 checksums and publishes them with the same notes. The GitVerse
+repository needs a `GITVERSE_API_KEY` secret with Repositories → Write
+permission. For an existing tag, choose "Run workflow" for GitVerse Release
+and run it on the tag, not on a branch. The official release action accepts
+only `refs/tags/` references.
+
 `.github/workflows/validate.yml` compares the results of two versions of
 AMORPH: it runs both on the four bundled datasets and writes a table of the
 posterior summaries (amorphous fraction, the shape of the wide component,
