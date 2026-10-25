@@ -20,10 +20,8 @@ def display():
     config = yaml.load(f, Loader=yaml.SafeLoader)
     f.close()
 
-    # Load the data file
-    data = dn4.my_loadtxt(config["data_file"])
-    x = data[:,0]
-    y = data[:,1]
+    # Load the data file, with the same rules as the sampler
+    x, y = amorph_stats.load_data(config["data_file"])
 
     # Load posterior samples etc
     posterior_sample = dn4.my_loadtxt("posterior_sample.txt")
@@ -33,7 +31,7 @@ def display():
     # The curves of all the posterior samples, one row per sample
     def curves(first):
         start = indices[first]
-        return posterior_sample[:, start:start + data.shape[0]]
+        return posterior_sample[:, start:start + x.size]
 
     bg = curves("bg[0]")
     wide_component = curves("wide[0]")
@@ -81,11 +79,9 @@ def display():
     plt.ylabel("Standardised residuals (of posterior mean model curve)")
     plt.show()
 
-    # Number of narrow components
-    binwidth=0.8
-    plt.hist(num_spikes,
-             bins=np.arange(0, max_num_spikes)-0.5*binwidth,
-             width=binwidth, color=[0.3, 0.3, 0.3])
+    # Number of narrow components: one bin per count from 0 to the maximum
+    plt.hist(num_spikes, bins=np.arange(0, max_num_spikes + 2) - 0.5,
+             rwidth=0.8, color=[0.3, 0.3, 0.3])
     plt.xlabel("Number of narrow components")
     plt.ylabel("Number of posterior samples")
 
@@ -95,7 +91,7 @@ def display():
 
     # A sample without a wide component counts as 0% amorphous
     wide_fraction = amorph_stats.amorphous_fraction(wide_component,
-                                                    the_spikes)
+                                                    the_spikes, x)
     macroquantities["amorph/(amorph + crystal)"] = wide_fraction
 
     # Remove any nans before plotting

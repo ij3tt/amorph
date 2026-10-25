@@ -36,12 +36,10 @@ import amorph_stats
 
 def load_data(filename):
     """
-    Read the two-column data file. Returns (x, y).
+    Read the two-column data file with the rules of the sampler. Returns
+    (x, y).
     """
-    d = np.loadtxt(filename)
-    if d.ndim != 2 or d.shape[1] < 2:
-        raise ValueError("{0} should have at least two columns".format(filename))
-    return d[:, 0], d[:, 1]
+    return amorph_stats.load_data(filename)
 
 
 def load_column_names(filename):
@@ -76,16 +74,17 @@ def column_block(indices, first, n):
     return list(range(indices[first], indices[first] + n))
 
 
-def amorphous_fraction(wide, narrow):
+def amorphous_fraction(wide, narrow, x=None):
     """
     Posterior mean of (amorphous)/(amorphous + crystalline) in percent,
-    calculated from the integrals of the two components with the same
-    function as display.py.
+    calculated from the integrals of the two components over the data grid x
+    with the same function as display.py. NaN if no sample has either
+    component: the fraction is then undefined, not 0%.
     """
-    frac = amorph_stats.amorphous_fraction(wide, narrow)
+    frac = amorph_stats.amorphous_fraction(wide, narrow, x)
     frac = frac[np.isfinite(frac)]
     if frac.size == 0:
-        return 0.0
+        return float("nan")
     return 100.0 * frac.mean()
 
 
@@ -165,7 +164,10 @@ def main():
 
     os.makedirs(args.out, exist_ok=True)
 
-    x, y = load_data(args.data)
+    try:
+        x, y = load_data(args.data)
+    except ValueError as e:
+        raise SystemExit(str(e))
     n = len(x)
 
     names, indices = load_column_names(args.posterior)
@@ -206,7 +208,11 @@ def main():
     mean_narrow = narrow.mean(axis=0)
     mean_bg = bg.mean(axis=0)
 
-    frac = amorphous_fraction(wide, narrow)
+    frac = amorphous_fraction(wide, narrow, x)
+    if not np.isfinite(frac):
+        raise SystemExit("The amorphous fraction is undefined: no posterior "
+                         "sample in {0} has a wide or a narrow "
+                         "component".format(args.posterior))
 
     # ------------------------------------------------------------------
     # Tables

@@ -58,8 +58,13 @@ def main():
 
     print("## AMORPH validation: reference vs tested version")
     print()
-    print("Posterior median and 68% interval [16%, 84%]. The runs are "
-          "stochastic, so differences well inside the intervals are noise.")
+    print("Posterior median and 68% interval [16%, 84%]. The intervals "
+          "show the uncertainty of each quantity given the data, not the "
+          "run-to-run (Monte Carlo) error of the sampler, which can be much "
+          "smaller or larger: whether a difference between the versions is "
+          "real cannot be read off them. Each version ran once per dataset; "
+          "repeat the runs with different seeds (as experiment.yml does) to "
+          "see the run-to-run spread.")
     print()
 
     for dataset in sorted({d for d, _ in runs}):

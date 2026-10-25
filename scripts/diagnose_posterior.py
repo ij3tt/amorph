@@ -109,7 +109,7 @@ def main():
     def path(name):
         return os.path.join(args.folder, name)
 
-    x, y = np.loadtxt(args.data, comments="#", unpack=True)
+    x, y = amorph_stats.load_data(args.data)
     n = x.size
 
     # Every saved particle, with its posterior weight
@@ -132,7 +132,7 @@ def main():
     particles["log_likelihood"] = info[:, 1]
     particles["weight"] = weights
     particles["nu_narrow"] = np.exp(particles["peak_shape"])
-    particles["fraction"] = amorph_stats.amorphous_fraction(wide, narrow)
+    particles["fraction"] = amorph_stats.amorphous_fraction(wide, narrow, x)
     fraction = particles["fraction"].to_numpy()
     defined = ~np.isnan(fraction)
     max_narrow = int(particles["max_num_peaks1"].iloc[0])
@@ -146,7 +146,7 @@ def main():
                         + block(post_indices, "narrow[0]", n)
                         + block(post_indices, "model_curve[0]", n))
     post_fraction = amorph_stats.amorphous_fraction(post[:, :n],
-                                                    post[:, n:2 * n])
+                                                    post[:, n:2 * n], x)
     rms = np.sqrt(((post[:, 2 * n:] - y)**2).mean(axis=1))
 
     w = weights[defined]
