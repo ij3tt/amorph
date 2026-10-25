@@ -99,6 +99,21 @@ def append_log(run, text):
         f.write(text)
 
 
+def complete_levels(folder, tries=100, pause=0.002):
+    """
+    levels.txt of a running sampler, complete (runfiles.levels_text), read
+    again for a moment if the sampler is rewriting it: before it is killed,
+    the stopped run needs a complete copy, even when no poll has taken one
+    yet (a run stopped soon after its start). None if there is none.
+    """
+    for _ in range(tries):
+        text = runfiles.levels_text(folder)
+        if text is not None:
+            return text
+        time.sleep(pause)
+    return None
+
+
 class RunQueue(QObject):
     """
     Runs the sampler for each run, one after another.
@@ -159,7 +174,7 @@ class RunQueue(QObject):
             run = self.current
             run.stopped = True
             run.status = STOPPING
-            self._save_levels(run, runfiles.levels_text(run.folder))
+            self._save_levels(run, complete_levels(run.folder))
             self.changed.emit(run)
             self.process.kill()
         self._check_finished()
@@ -175,7 +190,7 @@ class RunQueue(QObject):
         run, process = self.current, self.process
         if process is not None:
             run.stopped = True
-            self._save_levels(run, runfiles.levels_text(run.folder))
+            self._save_levels(run, complete_levels(run.folder))
             process.blockSignals(True)
             process.kill()
             process.waitForFinished(5000)
