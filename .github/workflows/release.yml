@@ -1,9 +1,11 @@
 name: Release
 
 # Releases AMORPH. build.yml builds the three command-line distributions with
-# the scripts in scripts/ci/ and runs their smoke tests; then
-# scripts/ci/package_release.sh packs them with the READMEs and the licences
-# and writes their SHA-256 checksums.
+# the scripts in scripts/ci/ and runs their smoke tests, and packages the GUI
+# for the three systems (scripts/ci/gui_package.sh) and runs the self-test of
+# each package; then scripts/ci/package_release.sh packs the command-line
+# distributions with the READMEs and the licences, adds the GUI packages and
+# writes the SHA-256 checksums of all six.
 #
 # - A pushed tag v<version>, where <version> is that of project() in
 #   CMakeLists.txt, makes the GitHub Release of the tag with these files.
@@ -25,6 +27,8 @@ on:
       - .github/workflows/release.yml
       - scripts/ci/package_release.sh
       - scripts/ci/release_notes.sh
+      - scripts/ci/gui_package.sh
+      - packaging/**
       - CHANGELOG.md
 
 permissions:
@@ -99,7 +103,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # AMORPH-windows, AMORPH-linux and AMORPH-macos, each in its folder
+      # AMORPH-windows, AMORPH-linux and AMORPH-macos, and the GUI packages
+      # AMORPH-GUI-windows-x64, AMORPH-GUI-linux-x64 and AMORPH-GUI-macos-arm64,
+      # each in its folder
       - uses: actions/download-artifact@v8
         with:
           pattern: AMORPH-*

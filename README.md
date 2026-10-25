@@ -14,14 +14,18 @@ Downloads
 
 Each release of AMORPH on the
 [Releases page](https://github.com/ij3tt/amorph/releases) has the
-command-line version for three systems, ready to run:
+command-line version and the graphical interface (see "The graphical
+interface" below) for three systems, ready to run:
 
 | file | system |
 |---|---|
 | `AMORPH-<tag>-windows-x64.zip` | Windows 10 or newer, 64-bit (x86-64) |
 | `AMORPH-<tag>-linux-x64.tar.gz` | Linux on x86-64 with glibc 2.34 and the libstdc++ of GCC 13 or newer: Ubuntu 24.04, Debian 13, Fedora 39 or newer |
 | `AMORPH-<tag>-macos-arm64.zip` | macOS 11 or newer on Apple Silicon (M1 or newer) |
-| `AMORPH-<tag>-SHA256SUMS.txt` | the SHA-256 checksums of the three |
+| `AMORPH-GUI-<tag>-windows-x64.zip` | the graphical interface, Windows 10 or newer, 64-bit |
+| `AMORPH-GUI-<tag>-linux-x64.tar.gz` | the graphical interface, Linux on x86-64 (built on Ubuntu 24.04, as the command-line version) |
+| `AMORPH-GUI-<tag>-macos-arm64.zip` | the graphical interface, macOS on Apple Silicon |
+| `AMORPH-<tag>-SHA256SUMS.txt` | the SHA-256 checksums of the six |
 
 `<tag>` is the version, such as `v1.0.0`; [CHANGELOG.md](CHANGELOG.md) says
 what changed in each. Each archive holds one folder, `AMORPH-<tag>-<system>`,
@@ -39,8 +43,18 @@ with
   and, in `licenses/`, the licences of the libraries built into the
   executable: DNest4, yaml-cpp and, on Windows, the mingw-w64 runtime.
 
-Unpack it anywhere and run AMORPH in that folder: it reads `config.yaml`
-from the folder it runs in (see "Guide to installing and operating" below).
+An archive of the graphical interface holds one folder, `AMORPH-GUI`, with
+the program and everything it needs, the sampler included: Python and its
+packages need not be installed. Unpack it anywhere and start
+`AMORPH-GUI.exe` (Windows), `AMORPH-GUI.app` (macOS) or `./AMORPH-GUI`
+(Linux) in that folder. It is about 100–200 MB unpacked. The folder also has
+the READMEs, `LICENSE` and, in `licenses/`, the licences of what the program
+bundles (Qt for Python is under the GNU LGPL; its libraries are separate
+files of the program).
+
+Unpack a command-line archive anywhere and run AMORPH in that folder: it
+reads `config.yaml` from the folder it runs in (see "Guide to installing and
+operating" below).
 On Linux and macOS that is `./AMORPH` in a terminal; on Windows a double
 click on `AMORPH.exe` works too. The source code of a release is on its page
 as well. The executables that CI builds for every change are artefacts of
@@ -78,6 +92,12 @@ Opened from the Finder, AMORPH runs in a Terminal window in your home folder
 and stops at once, since it finds no `config.yaml` there; that is expected.
 From then on run it from its folder in Terminal: `cd` to the folder, then
 `./AMORPH`. The Python scripts need none of this.
+
+The graphical interface is allowed the same way, once: `AMORPH-GUI.exe` on
+Windows, and `AMORPH-GUI.app` on macOS, or in Terminal in its folder
+`xattr -dr com.apple.quarantine AMORPH-GUI.app` (`-r`: the app is a folder
+of files). It runs the sampler packed inside it, which then needs nothing
+more.
 
 Guide to installing and operating:
 ==================================
@@ -174,9 +194,17 @@ The graphical interface
 `src/amorph_gui` is a desktop program for all of the above: it opens a
 data file, sets up and runs the sampler for one or more seeds, and shows
 and compares the results. Its text is in Russian (all of it is in
-`src/amorph_gui/strings.py`, so that it can be translated). It needs
-PySide6 and pyqtgraph besides the packages of the post-processing, and
-the AMORPH executable (see "Using the source code"):
+`src/amorph_gui/strings.py`, so that it can be translated).
+
+Each release has it packaged for Windows, Linux and macOS, with the
+sampler inside, ready to run (see "Downloads"). CI packages it with
+PyInstaller (`packaging/amorph_gui.spec`, `scripts/ci/gui_package.sh`) on
+each system and runs the self-test of the packaged program there; the
+packages of every change are artefacts of the Build runs.
+
+From the source code it needs PySide6 and pyqtgraph besides the packages
+of the post-processing, and the AMORPH executable (see "Using the source
+code"):
 
 ```
 pip install PySide6 pyqtgraph
@@ -185,10 +213,9 @@ python -m amorph_gui [FILE]
 ```
 
 `FILE`, if given, is a data file or a run archive to open. The program
-runs the AMORPH executable that is next to it (in `src/`, or in `build/`
-of a CMake build of the repository) or on the PATH, unless «Настройки…»
-(or `--amorph PATH`) names another. There is no packaged version of the
-program yet.
+runs the AMORPH executable that is next to it (in `src/`, in `build/` of a
+CMake build of the repository, or inside the packaged program) or on the
+PATH, unless «Настройки…» (or `--amorph PATH`) names another.
 
 It has four screens, listed on the left:
 

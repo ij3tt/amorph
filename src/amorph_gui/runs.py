@@ -7,6 +7,7 @@ post-processes it and writes the run archive, while the next seed runs.
 
 import codecs
 import os
+import sys
 import time
 
 from PySide6.QtCore import QObject, QProcess, QTimer, Signal
@@ -97,6 +98,26 @@ def append_log(run, text):
     with open(os.path.join(run.folder, runfiles.LOG_FILE), "a",
               encoding="utf-8") as f:
         f.write(text)
+
+
+# CREATE_NO_WINDOW of the Windows API
+_CREATE_NO_WINDOW = 0x08000000
+
+
+def no_console_window(process):
+    """
+    On Windows, start the sampler of a QProcess without a console window of
+    its own: a program without a console (the packaged GUI) would otherwise
+    show one for every run. Its output still comes through the pipe.
+    """
+    if sys.platform != "win32" \
+            or not hasattr(process, "setCreateProcessArgumentsModifier"):
+        return
+
+    def modify(arguments):
+        arguments.flags |= _CREATE_NO_WINDOW
+
+    process.setCreateProcessArgumentsModifier(modify)
 
 
 def complete_levels(folder, tries=100, pause=0.002):
@@ -219,6 +240,7 @@ class RunQueue(QObject):
         process = QProcess(self)
         process.setWorkingDirectory(run.folder)
         process.setProcessChannelMode(QProcess.MergedChannels)
+        no_console_window(process)
         process.readyReadStandardOutput.connect(
             lambda: self._read(run, process))
         process.finished.connect(

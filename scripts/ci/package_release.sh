@@ -1,22 +1,28 @@
 #!/usr/bin/env bash
 #
-# Pack the three command-line distributions of a release and write their
-# SHA-256 checksums.
+# Pack the three command-line distributions of a release, add the three
+# packages of the GUI, and write their SHA-256 checksums.
 #
 # Usage: scripts/ci/package_release.sh TAG DIST OUT
 #
 # DIST holds the artefacts of .github/workflows/build.yml, AMORPH-windows,
-# AMORPH-linux and AMORPH-macos, as download-artifact puts them. OUT gets
+# AMORPH-linux and AMORPH-macos, and AMORPH-GUI-windows-x64,
+# AMORPH-GUI-linux-x64 and AMORPH-GUI-macos-arm64, as download-artifact puts
+# them. OUT gets
 #
 #   AMORPH-TAG-windows-x64.zip
 #   AMORPH-TAG-linux-x64.tar.gz
 #   AMORPH-TAG-macos-arm64.zip
+#   AMORPH-GUI-TAG-windows-x64.zip
+#   AMORPH-GUI-TAG-linux-x64.tar.gz
+#   AMORPH-GUI-TAG-macos-arm64.zip
 #   AMORPH-TAG-SHA256SUMS.txt
 #
-# Each archive holds one folder, AMORPH-TAG-SYSTEM, with the executable, the
-# Python post-processing scripts, config.yaml, the OPTIONS files,
-# easy_data.txt, the READMEs, the licence of AMORPH and, in licenses/, those
-# of the libraries linked into the executable.
+# Each command-line archive holds one folder, AMORPH-TAG-SYSTEM, with the
+# executable, the Python post-processing scripts, config.yaml, the OPTIONS
+# files, easy_data.txt, the READMEs, the licence of AMORPH and, in
+# licenses/, those of the libraries linked into the executable. The GUI
+# archives are those of scripts/ci/gui_package.sh, renamed after the tag.
 #
 # Used by .github/workflows/release.yml.
 #
@@ -93,5 +99,18 @@ objdump -T "${STAGE}/AMORPH-${TAG}-linux-x64/AMORPH" \
     | awk -F_ '{newest[$1] = $0} END {for (k in newest) print newest[k]}'
 
 rm -rf "${STAGE}"
+
+# The packages of the GUI, built and tested by gui_package.sh
+for package in windows-x64.zip linux-x64.tar.gz macos-arm64.zip; do
+    from="${DIST}/AMORPH-GUI-${package%%.*}/AMORPH-GUI-${package}"
+    if [ ! -f "${from}" ]; then
+        echo "package_release: no ${from}" >&2
+        exit 1
+    fi
+    cp "${from}" "${OUT}/AMORPH-GUI-${TAG}-${package}"
+    ls -l "${OUT}/AMORPH-GUI-${TAG}-${package}"
+done
+
 (cd "${OUT}" && sha256sum "AMORPH-${TAG}-"*.zip "AMORPH-${TAG}-"*.tar.gz \
+     "AMORPH-GUI-${TAG}-"*.zip "AMORPH-GUI-${TAG}-"*.tar.gz \
      > "AMORPH-${TAG}-SHA256SUMS.txt" && cat "AMORPH-${TAG}-SHA256SUMS.txt")
