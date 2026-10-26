@@ -10,8 +10,8 @@ name: Release
 #
 # GitVerse refuses release files larger than 100 MB (the GUI package for
 # Linux is about 120 MB): those stay on GitHub only, and the notes of the
-# GitVerse Release link to them. Only a tag whose commit has this file can
-# run it, so GitVerse has the releases from v1.0.1 on.
+# GitVerse Release link to them. Only a tag whose commit has this file, and
+# the secret below, can run it: GitVerse has the releases from v1.0.2 on.
 #
 # The release is made with a GitVerse API key with Repositories → Write, in
 # the secret RELEASE_API_KEY of the repository (GitVerse does not take
