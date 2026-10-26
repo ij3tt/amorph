@@ -248,7 +248,7 @@ def test_the_joint_report_and_its_figure(window, qtbot, archives, tmp_path):
     assert (digest.AMBER, S.JOINT_SETTINGS) in notes
     assert paper.startswith("demo_data: ") and "2 сида" in paper
     assert screen.paper.text() == paper
-    assert screen.title() == "demo_data.txt"
+    assert screen.figure_title() == "demo_data.txt"
 
     # The figure in both styles, and what the buttons write
     for style in ("fit", "seeds"):

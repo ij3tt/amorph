@@ -256,7 +256,7 @@ class CompareScreen(Screen):
         self.last_dir = None
         self._order = itertools.count()
         self.pooled = None
-        self.style = "fit"
+        self.figure_style = "fit"
         self.latex = amorph_tex.find_latex()
         self.add_button(S.ADD_ARCHIVES, self.add_archives_dialog)
         self.add_button(S.ADD_FOLDER, self.add_folder_dialog,
@@ -399,7 +399,7 @@ class CompareScreen(Screen):
             button = QPushButton(label)
             button.setObjectName("segment")
             button.setCheckable(True)
-            button.setChecked(key == self.style)
+            button.setChecked(key == self.figure_style)
             button.clicked.connect(lambda checked, k=key: self.set_style(k))
             group.addButton(button)
             segments.addWidget(button)
@@ -417,7 +417,7 @@ class CompareScreen(Screen):
             self.canvas = FigureCanvasQTAgg(self.figure)
         self.canvas.setMinimumHeight(380)
         layout.addWidget(self.canvas, 1)
-        self.style_note = styled_label(STYLE_NOTES[self.style], "muted")
+        self.style_note = styled_label(STYLE_NOTES[self.figure_style], "muted")
         layout.addWidget(self.style_note)
         layout.addWidget(styled_label(S.FIGURE_PREVIEW_NOTE, "muted"))
 
@@ -598,11 +598,11 @@ class CompareScreen(Screen):
 
     _default_title = ""
 
-    def title(self):
+    def figure_title(self):
         return self.title_edit.text().strip() or self._default_title
 
     def set_style(self, style):
-        self.style = style
+        self.figure_style = style
         self.style_buttons[style].setChecked(True)
         self.style_note.setText(STYLE_NOTES[style])
         self._redraw()
@@ -611,9 +611,10 @@ class CompareScreen(Screen):
         self.figure.clear()
         if self.pooled is not None:
             with matplotlib.rc_context(theme.matplotlib_style()):
-                figures.DRAW[self.style](self.figure, self.pooled,
-                                         self.title())
-        self.canvas.draw_idle()
+                figures.DRAW[self.figure_style](self.figure, self.pooled,
+                                                self.figure_title())
+        # Now rather than at idle time, when the window may be gone
+        self.canvas.draw()
 
     def copy_paper_line(self):
         QApplication.clipboard().setText(self.paper.text())
@@ -631,7 +632,7 @@ class CompareScreen(Screen):
         The tables of PGFPlots of the joint report into folder, as
         export_pgf.py writes them, with those of the two-panel figure.
         """
-        pooled, title = self.pooled, self.title()
+        pooled, title = self.pooled, self.figure_title()
         self._export(lambda: amorph_tex.write_tables(pooled, folder, title))
 
     def export_tex_dialog(self):
@@ -643,7 +644,8 @@ class CompareScreen(Screen):
         """
         The folder of the figure in the chosen style, ready for LaTeX.
         """
-        pooled, style, title = self.pooled, self.style, self.title()
+        pooled, style = self.pooled, self.figure_style
+        title = self.figure_title()
 
         def job():
             amorph_tex.write_figure(pooled, folder, style, title)
@@ -652,7 +654,7 @@ class CompareScreen(Screen):
         self._export(job)
 
     def export_file_dialog(self, kind):
-        stem = os.path.splitext(amorph_tex.FIGURES[self.style][0])[0]
+        stem = os.path.splitext(amorph_tex.FIGURES[self.figure_style][0])[0]
         filters = {"pdf": S.FILTER_PDF, "svg": S.FILTER_SVG,
                    "png": S.FILTER_PNG}
         path = self.save_file_name(S.FIGURE_TITLE, stem + "." + kind,
@@ -665,7 +667,8 @@ class CompareScreen(Screen):
         The figure as PDF or SVG, built by LaTeX in a temporary folder, or
         its preview as PNG.
         """
-        pooled, style, title = self.pooled, self.style, self.title()
+        pooled, style = self.pooled, self.figure_style
+        title = self.figure_title()
         tools = self.latex
         if pooled is None:
             return

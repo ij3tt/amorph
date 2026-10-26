@@ -77,8 +77,11 @@ def test_seeds_count_equally(results):
     assert pooled["spread"] == pytest.approx(0.1)
     assert pooled["seeds"] == [5, 99]
     assert medians[0] < pooled["quantiles"][2] < medians[1]
-    # The faint curves come from the seeds in turn
-    assert len(pooled["examples"]["model_curve"]) == amorph_seeds.NUM_EXAMPLES
+    # The faint curves come from the seeds in turn, as many as there are up
+    # to NUM_EXAMPLES
+    each = len(results.curves["model_curve_examples"])
+    assert len(pooled["examples"]["model_curve"]) == \
+        min(amorph_seeds.NUM_EXAMPLES, 2 * each)
     # Two copies of one run are that run
     twice = amorph_seeds.pool([results, results])
     assert twice["quantiles"] == pytest.approx(
@@ -136,7 +139,7 @@ def test_tables_of_both_figures(results, tmp_path):
     assert meta["xrdtitle"] == "demo\\_data.txt"
     assert float(meta["xrdamorph"].rstrip("\\%")) == pytest.approx(
         100.0 * pooled["mean"], abs=0.051)
-    assert meta["xrdnsamples"] == str(amorph_seeds.NUM_EXAMPLES)
+    assert meta["xrdnsamples"] == str(len(pooled["examples"]["model_curve"]))
 
     # The tables of the two-panel figure
     curves = np.loadtxt(os.path.join(out, "seeds_curves.dat"), skiprows=1)
