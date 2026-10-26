@@ -6,12 +6,17 @@ name: Release
 # Pushed with the tag, this starts while GitHub is still building the
 # release (about 16 minutes): download_release.sh waits for it up to 20 of
 # the 30 minutes of the job. If it takes longer, the job fails with a
-# message; "Run workflow" on the tag once the GitHub Release is complete.
+# message; "Run workflow" once the GitHub Release is complete.
 #
 # GitVerse refuses release files larger than 100 MB (the GUI package for
 # Linux is about 120 MB): those stay on GitHub only, and the notes of the
-# GitVerse Release link to them. Only a tag whose commit has this file, and
-# the secret below, can run it: GitVerse has the releases from v1.0.2 on.
+# GitVerse Release link to them. Pre-releases (v1.1.0-rc.1) stay on GitHub.
+#
+# scripts/ci/gitverse_release.sh makes the release and uploads the files
+# through the API of GitVerse: its release action gave up on large files
+# after about 10 seconds. "Run workflow" with a tag (on master, say) mirrors
+# that tag again, uploading only the files the GitVerse Release lacks, such
+# as those that v1.0.2 lost that way.
 #
 # The release is made with a GitVerse API key with Repositories → Write, in
 # the secret RELEASE_API_KEY of the repository (GitVerse does not take
@@ -21,14 +26,20 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "The tag to mirror, such as v1.0.2 (empty: the tag this runs on)"
+        required: false
 
 jobs:
   release:
     name: Mirror the GitHub Release
+    if: ${{ !contains(github.event.inputs.tag || github.ref_name, '-') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      TAG: ${{ github.ref_name }}
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+      GIVEN_TAG: ${{ github.event.inputs.tag }}
       # The largest release file that GitVerse takes, in bytes
       MAX_SIZE: 100000000
     steps:
@@ -47,16 +58,17 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Check the version and read the release notes
-        id: version
         shell: bash
         run: |
           version="$(sed -n 's/^project(AMORPH VERSION \([0-9.]*\).*/\1/p' \
                      CMakeLists.txt)"
-          if [ "${TAG}" != "v${version}" ]; then
-              echo "::error::Run this workflow on tag v${version}, not ${TAG}"
+          if [ -z "${GIVEN_TAG}" ] && [ "${TAG}" != "v${version}" ]; then
+              echo "::error::Run this workflow on tag v${version}, not" \
+                   "${TAG}, or give the tag to mirror"
               exit 1
           fi
-          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          # The notes of a release that GitVerse does not have yet; a tag
+          # given by hand takes them from the CHANGELOG.md of this branch
           bash scripts/ci/release_notes.sh "${TAG}" > notes.md
 
       - name: Download and verify the GitHub Release
@@ -64,7 +76,6 @@ jobs:
         run: bash scripts/ci/download_release.sh "${TAG}" release
 
       - name: Leave the files over 100 MB on GitHub
-        id: notes
         shell: bash
         run: |
           mkdir -p github-only
@@ -87,24 +98,13 @@ jobs:
               } >> notes.md
           fi
           ls -l release github-only
-          {
-              echo 'body<<AMORPH_RELEASE_NOTES'
-              cat notes.md
-              echo 'AMORPH_RELEASE_NOTES'
-          } >> "${GITHUB_OUTPUT}"
-
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: '>=1.23'
 
       # Every file in release/
-      - name: Create or update the GitVerse Release
-        uses: actions/create-release@v1
-        with:
-          api_key: ${{ secrets.RELEASE_API_KEY }}
-          title: AMORPH ${{ steps.version.outputs.version }}
-          body: ${{ steps.notes.outputs.body }}
-          files: release
-          draft: false
-          pre_release: false
+      - name: Create the GitVerse Release and upload the files
+        shell: bash
+        env:
+          RELEASE_API_KEY: ${{ secrets.RELEASE_API_KEY }}
+        run: |
+          . scripts/ci/common.sh
+          require python3:python3 curl:curl
+          bash scripts/ci/gitverse_release.sh "${TAG}" release notes.md

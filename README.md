@@ -662,9 +662,14 @@ GitVerse API key with Repositories → Write permission in the secret
 about 16 minutes to build the release of v1.0.0, and the mirror waits up to
 20 minutes of its 30 (`scripts/ci/download_release.sh`). If the GitHub
 Release takes longer, the mirror fails and says so: once the GitHub Release
-has all seven files, choose "Run workflow" for Release on GitVerse and run
-it on the tag, not on a branch (the release action accepts only
-`refs/tags/` references).
+has all seven files, choose "Run workflow" for Release on GitVerse, on the
+tag or with the tag in its field. `scripts/ci/gitverse_release.sh` makes
+the release and uploads the files through the API of GitVerse, with ten
+minutes and retries per file, and skips the files the release has already:
+a second run completes a release that a first one left half done. (The
+release action of GitVerse, used up to v1.0.2, gave up on the GUI package
+for Windows after about 10 seconds and left the release of v1.0.2 with one
+file: "Run workflow" on master with the tag v1.0.2 uploads the rest.)
 
 GitVerse takes release files of up to 100 MB, and 4 GB of releases per
 account. A larger file, such as the GUI package for Linux (about
