@@ -225,6 +225,17 @@ STOP = "Остановить"
 STOP_TIP = ("Остановить сэмплер, оставить полные сохранения и обработать "
             "их; оставшиеся seed отменяются")
 OPEN_FOLDER = "Открыть папку"
+OPEN_RUNS = "Открыть прогоны…"
+OPEN_RUNS_TIP = ("Открыть папку прогона или папку с прогонами (можно и "
+                 "перетащить папки в окно): каждый прогон появится здесь, "
+                 "на «Результатах» и на «Сравнении»")
+CHOOSE_RUNS = "Папка прогона или папка с прогонами"
+NO_RUN_FOLDERS = ("В {0} нет прогонов: в папке прогона лежат config.yaml, "
+                  "sample_info.txt и levels.txt.")
+OPEN_RUN_FAILED = "Не удалось открыть прогон {0}: {1}"
+RUNS_OPENED = "Открыто прогонов: {0}"
+ESTIMATE_REPLAYING = ("Оценка прогона по его сохранениям считается: для "
+                      "10 000 сохранений около 20 секунд.")
 NO_RUNS = "Прогонов пока нет: запустите их на экране «Данные и модель»."
 QUEUE_TITLE = "Очередь"
 RUNS_HEADER = "прогонов: {0}"
@@ -237,7 +248,6 @@ COLUMN_STATUS = "Состояние"
 COLUMN_SAVES = "Сохранения"
 COLUMN_LEVELS = "Уровни"
 COLUMN_TIME = "Время"
-COLUMN_FRACTION_NOW = "Доля сейчас"
 STATUS_WAITING = "ждёт"
 STATUS_RUNNING = "идёт"
 STATUS_STOPPING = "останавливается"
@@ -246,6 +256,7 @@ STATUS_DONE = "готов"
 STATUS_INCOMPLETE = "неполный (остановлен)"
 STATUS_FAILED = "ошибка"
 STATUS_CANCELLED = "отменён"
+STATUS_OPENING = "открывается"
 PROGRESS = ("Сохранения: {saves} из {planned} · уровни: {levels} · время: "
             "{time}")
 PROGRESS_UNLIMITED = "Сохранения: {saves} · уровни: {levels} · время: {time}"
@@ -259,7 +270,6 @@ ESTIMATE_NOTE = ("Пересчитывается по всем сохранен�
                  "итоге прогона.")
 FRACTION_NOW = "{0:.3f}"
 FRACTION_NOW_INTERVALS = "50% [{0:.3f}, {1:.3f}] · 90% [{2:.3f}, {3:.3f}]"
-FRACTION_NOW_CELL = "{0:.3f} [{1:.3f}, {2:.3f}]"
 SETTLED = "Оценка устоялась"
 UNSETTLED = "Оценка ещё уточняется"
 STAT_SHIFT = "сдвиг медианы за последние {0} сохранений"
@@ -432,13 +442,12 @@ REMOVE_ROWS = "Убрать"
 CLEAR_ROWS = "Очистить"
 EXPORT_CSV = "CSV…"
 EXPORT_MARKDOWN = "Markdown…"
-COMPARE_HINT = ("Добавьте архивы прогонов (.amorph), в том числе run.amorph "
-                "из артефактов experiment и validate. Двойной щелчок по "
-                "строке открывает архив на экране «Результаты».")
+COMPARE_HINT = ("Архивы и папки прогонов; отмеченные входят в совместный "
+                "отчёт. Двойной щелчок открывает прогон на «Результатах».")
 COLUMN_ARCHIVE = "Архив"
 COLUMN_DATA = "Данные"
 COLUMN_SETTINGS = "Настройки"
-COLUMN_FRACTION = "Доля: медиана [25%, 75%]"
+COLUMN_FRACTION = "Доля [25%, 75%]"
 COLUMN_INTERVAL = "Интервал {0:.2f}–{1:.2f}"
 COLUMN_INTERVAL_TIP = ("Точка — медиана доли, толстая полоса — 50% интервал, "
                        "тонкая — 90%; шкала общая для всех строк.")
@@ -460,7 +469,8 @@ CHECK_STOPPED = "остановлен: {0} из {1} сохранений"
 CHECK_ESS = "мало выборок (ESS {0:.0f})"
 CHECK_CAP = "у предела узких пиков"
 ADD_FOLDER = "Добавить папку…"
-ADD_FOLDER_TIP = "Добавить все архивы прогонов (.amorph) из папки и её подпапок"
+ADD_FOLDER_TIP = ("Добавить прогоны из папки и её подпапок: папки прогонов "
+                  "открываются целиком, архивы (.amorph) — как есть")
 CHOOSE_FOLDER = "Папка с архивами прогонов"
 NO_ARCHIVES_IN = "В {0} нет архивов прогонов (.amorph)."
 # The joint report of the chosen runs
@@ -497,6 +507,8 @@ COPIED = "Скопировано"
 # The figure of the chosen runs
 FIGURE_TITLE = "Рисунок по отмеченным"
 FIGURE_STYLE = "стиль"
+FIGURE_TITLE_PLACEHOLDER = ("Заголовок рисунка (по умолчанию — имя файла "
+                            "данных)")
 STYLE_FIT = "как в статье (xrd_fit)"
 STYLE_SEEDS = "две панели"
 FIGURE_FIT_NOTE = (

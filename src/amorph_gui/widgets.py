@@ -66,6 +66,8 @@ class Screen(QWidget):
     """
 
     openArchiveRequested = Signal()
+    # The screen asks to open run folders (main_window.open_runs_dialog)
+    openRunsRequested = Signal()
     # An error to show: title, text (the main window shows it)
     errorReported = Signal(str, str)
 

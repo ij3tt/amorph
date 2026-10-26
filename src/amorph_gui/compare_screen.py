@@ -248,6 +248,8 @@ class CompareScreen(Screen):
 
     showArchive = Signal(str)
     message = Signal(str)
+    # A folder to open: its runs and its archives (main_window.open_paths)
+    folderChosen = Signal(str)
 
     def __init__(self, tasks, parent=None):
         super().__init__(S.SCREEN_COMPARE, parent)
@@ -267,7 +269,6 @@ class CompareScreen(Screen):
         self.add_button(S.EXPORT_MARKDOWN, self.export_markdown_dialog)
 
         self.set_header("", S.COMPARE_HINT)
-        self.header_text.setWordWrap(True)
 
         page = QWidget()
         column = QVBoxLayout(page)
@@ -326,13 +327,16 @@ class CompareScreen(Screen):
         self.view.setWordWrap(False)
         self.view.setMinimumHeight(220)
         header = self.view.horizontalHeader()
+        # Wide enough for the names of the columns that stretch, also in an
+        # empty table
+        header.setMinimumSectionSize(84)
         for i in range(len(COLUMNS)):
             header.setSectionResizeMode(i, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(2, QHeaderView.Stretch)
         header.setSectionResizeMode(0, QHeaderView.Stretch)
         self.view.setTextElideMode(Qt.ElideMiddle)
         header.setSectionResizeMode(INTERVAL_COLUMN, QHeaderView.Fixed)
-        header.resizeSection(INTERVAL_COLUMN, 200)
+        header.resizeSection(INTERVAL_COLUMN, 180)
         self.view.doubleClicked.connect(self._double_clicked)
         table_layout.addWidget(self.view, 1)
         self.errors = QLabel()
@@ -408,6 +412,7 @@ class CompareScreen(Screen):
         layout.addLayout(top)
 
         self.title_edit = QLineEdit()
+        self.title_edit.setPlaceholderText(S.FIGURE_TITLE_PLACEHOLDER)
         self.title_edit.editingFinished.connect(self._redraw)
         layout.addWidget(self.title_edit)
 
@@ -472,7 +477,7 @@ class CompareScreen(Screen):
     def add_folder_dialog(self):
         folder = self.choose_folder(S.CHOOSE_FOLDER)
         if folder:
-            self.add_folder(folder)
+            self.folderChosen.emit(folder)
 
     def add_folder(self, folder):
         """
@@ -509,12 +514,22 @@ class CompareScreen(Screen):
 
             self.tasks.run(job, self._loaded, failed)
 
+    def add_results(self, results, path):
+        """
+        A row for results already read, such as those of a run opened from
+        its folder; path is its archive.
+        """
+        self.model.add(digest.comparison_row(results, path),
+                       next(self._order))
+        self.view.resizeColumnsToContents()
+        self.view.horizontalHeader().resizeSection(INTERVAL_COLUMN, 180)
+
     def _loaded(self, result):
         self.pending -= 1
         order, row = result
         self.model.add(row, order)
         self.view.resizeColumnsToContents()
-        self.view.horizontalHeader().resizeSection(INTERVAL_COLUMN, 200)
+        self.view.horizontalHeader().resizeSection(INTERVAL_COLUMN, 180)
 
     def remove_selected(self):
         rows = {i.row() for i in self.view.selectionModel().selectedRows()}

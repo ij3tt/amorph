@@ -266,6 +266,17 @@ It has four screens, listed on the left:
   than 99% of the posterior. «Остановить» stops the sampler, keeps its
   complete saves, post-processes them and marks the run as incomplete;
   the seeds still waiting are cancelled.
+
+  «Открыть прогоны…» opens runs done earlier or on another computer: a
+  run folder (one with `config.yaml`, `sample_info.txt` and
+  `levels.txt`), or a folder with run folders in it, down to two levels.
+  Run folders and archives can also be dragged onto the window, many at a
+  time. Each run then shows on «Прогоны» with its output and its estimate
+  (the trace is rebuilt from its saves, which takes about 20 seconds for
+  10 000 saves), on «Результаты» and on «Сравнение». Its results come
+  from its archive if it is up to date; otherwise it is post-processed as
+  at the end of a run, which writes `posterior_sample.txt` and the archive
+  into its folder.
 * «Результаты»: each run is post-processed as `showresults.py` does it,
   and its archive is written in its folder. The tabs: «Итог», the median
   of the amorphous fraction with its 50% and 90% intervals, cards for the

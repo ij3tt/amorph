@@ -42,6 +42,11 @@ Pre-releases (v1.1.0-rc.1, ...) come before the release, on GitHub only.
   `export_pgf.write_tables` writes the tables from curves in memory;
   `src/amorph_tex.py` writes the folders of the figures and builds them.
 
+- «Открыть прогоны…» on «Прогоны» (or a folder chosen on «Сравнение», or
+  folders dropped on the window) opens runs done earlier or on another
+  computer from their folders, many at a time: each on «Прогоны» with its
+  output and its estimate rebuilt from its saves, on «Результаты» and on
+  «Сравнение». A run without an up-to-date archive is post-processed.
 - A splash screen shows as soon as the GUI starts, with the step under way:
   the first start of a newly unpacked package can take a minute while the
   system checks its files, and without a window the program was started
@@ -51,6 +56,10 @@ Pre-releases (v1.1.0-rc.1, ...) come before the release, on GitHub only.
 
 - The axes of the plots of the GUI no longer scale numbers with an SI
   prefix: the histogram of the fraction read 200-800 "(x0.001)".
+- The layout of rc.1: an empty table of «Сравнение» squeezed «Архив» and
+  «Настройки» to a few letters, and its hint was cut off; the table of
+  «Прогоны» scrolled sideways; the empty plot of the fraction ran from
+  -0.4 to 0.4.
 
 ### Build and CI
 

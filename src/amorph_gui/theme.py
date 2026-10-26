@@ -74,7 +74,8 @@ LEVELS = {
 # The status of a run on «Прогоны»
 STATUS_COLORS = {"waiting": MUTED, "running": ACCENT, "stopping": AMBER,
                  "postprocessing": ACCENT, "done": GREEN,
-                 "incomplete": AMBER, "failed": RED, "cancelled": MUTED}
+                 "incomplete": AMBER, "failed": RED, "cancelled": MUTED,
+                 "opening": ACCENT}
 
 # -------------------------------------------------------------------- fonts
 

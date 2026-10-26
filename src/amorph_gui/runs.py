@@ -27,6 +27,8 @@ DONE = "done"
 INCOMPLETE = "incomplete"
 FAILED = "failed"
 CANCELLED = "cancelled"
+# A run of a folder opened in the GUI, while it is being read
+OPENING = "opening"
 
 # The states of a run that is not over yet
 ACTIVE = (WAITING, RUNNING, STOPPING, POSTPROCESSING)
@@ -35,7 +37,7 @@ STATUS_TEXT = {WAITING: S.STATUS_WAITING, RUNNING: S.STATUS_RUNNING,
                STOPPING: S.STATUS_STOPPING,
                POSTPROCESSING: S.STATUS_POSTPROCESSING, DONE: S.STATUS_DONE,
                INCOMPLETE: S.STATUS_INCOMPLETE, FAILED: S.STATUS_FAILED,
-               CANCELLED: S.STATUS_CANCELLED}
+               CANCELLED: S.STATUS_CANCELLED, OPENING: S.STATUS_OPENING}
 
 # How often the progress of the sampler is read, in milliseconds
 POLL_INTERVAL = 1000
@@ -68,6 +70,8 @@ class Run(object):
         self.error = None
         self.results = None
         self.archive = None
+        # Opened from its folder (main_window.open_runs), not run here
+        self.opened = False
         # The last complete levels.txt, in case killing the sampler cuts it
         self.saved_levels = None
         self.reader = runfiles.SampleReader(os.path.join(folder,

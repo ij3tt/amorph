@@ -19,7 +19,8 @@ from PySide6.QtWidgets import (QFileDialog, QHBoxLayout, QLabel,
 
 import amorph_archive
 
-from amorph_gui import config, preferences, runfiles
+from amorph_gui import config, live, preferences, runfiles
+from amorph_gui import runs as R
 from amorph_gui import strings as S
 from amorph_gui import theme
 from amorph_gui.compare_screen import CompareScreen
@@ -81,6 +82,7 @@ class MainWindow(QMainWindow):
         self.headless = headless
         self.errors = []
         self.last_archive_dir = None
+        self.last_runs_dir = None
         self.setWindowTitle(S.WINDOW_TITLE)
         self.tasks = Tasks(parent=self)
         self.queue = RunQueue(self.tasks, parent=self)
@@ -104,6 +106,7 @@ class MainWindow(QMainWindow):
         for screen in self.screens:
             self.stack.addWidget(screen)
             screen.openArchiveRequested.connect(self.open_archive_dialog)
+            screen.openRunsRequested.connect(self.open_runs_dialog)
             screen.errorReported.connect(self.error)
         self.nav.currentRowChanged.connect(self.stack.setCurrentIndex)
 
@@ -135,6 +138,11 @@ class MainWindow(QMainWindow):
         self.data_screen.runRequested.connect(self.start_runs)
         self.runs_screen.showResults.connect(self.show_run_results)
         self.compare_screen.showArchive.connect(self.open_archive)
+        self.compare_screen.folderChosen.connect(
+            lambda folder: self.open_paths([folder]))
+        self.runs_screen.estimateWanted.connect(self.replay_run)
+        # Folders of runs and archives dropped on the window open
+        self.setAcceptDrops(True)
         self.results_screen.message.connect(self.status)
         self.compare_screen.message.connect(self.status)
         self.queue.postprocessed.connect(self._postprocessed)
@@ -185,6 +193,123 @@ class MainWindow(QMainWindow):
         self.tasks.run(lambda: amorph_archive.read(path), done,
                        lambda e: self.error(S.ERROR, S.CANNOT_READ_ARCHIVE
                                             .format(path) + ":\n" + e))
+
+    # ------------------------------------------- runs done elsewhere
+
+    def open_runs_dialog(self):
+        folder = QFileDialog.getExistingDirectory(
+            self, S.CHOOSE_RUNS, self.last_runs_dir or self.prefs.runs_folder)
+        if folder:
+            self.open_paths([folder])
+
+    def open_paths(self, paths):
+        """
+        Open what paths name: the run folders among them and in their
+        subfolders (open_runs), and the run archives that are not in a run
+        folder, on «Сравнение» (one archive alone on «Результаты»).
+        """
+        folders = [p for p in paths if os.path.isdir(p)]
+        archives = [p for p in paths if os.path.isfile(p)
+                    and p.lower().endswith(".amorph")]
+        for folder in folders:
+            archives += runfiles.loose_archives(folder)
+        runs = self.open_runs(folders, quiet=bool(archives)) if folders             else []
+        if len(archives) == 1 and not runs:
+            self.open_archive(archives[0])
+        elif archives:
+            self.compare_screen.add_archives(archives)
+            if not runs:
+                self.show_screen(COMPARE)
+
+    def open_runs(self, paths, quiet=False):
+        """
+        Open the run folders among paths and in their subfolders, each as a
+        run on «Прогоны» with its output and its estimate, its results on
+        «Результаты» and a row on «Сравнение». Its results come from its
+        archive, or from the post-processing (runfiles.open_run). Folders
+        already shown are left out. Returns the runs.
+        """
+        folders = []
+        for path in paths:
+            folders += runfiles.run_folders(path)
+        shown = {os.path.normcase(r.folder) for r in self.runs_screen.rows}
+        folders = [f for f in dict.fromkeys(folders)
+                   if os.path.normcase(f) not in shown]
+        if not folders:
+            if not quiet:
+                self.error(S.OPEN_RUNS, S.NO_RUN_FOLDERS.format(
+                    ", ".join(paths)))
+            return []
+        self.last_runs_dir = os.path.dirname(folders[0])
+        runs = []
+        for folder in folders:
+            run = Run(folder, None, 0, None, None)
+            run.opened = True
+            run.status = R.OPENING
+            self.runs_screen.update_run(run)
+            runs.append(run)
+            self.queue.post_tasks.run(
+                lambda folder=folder: runfiles.open_run(folder),
+                lambda info, run=run: self._run_opened(run, info),
+                lambda e, run=run: self._run_not_opened(run, e))
+        if self.runs_screen.shown is None:
+            self.runs_screen.show_run(runs[0])
+        self.show_screen(RUNS)
+        self.status(S.RUNS_OPENED.format(len(runs)))
+        return runs
+
+    def _run_opened(self, run, info):
+        run.seed, run.planned = info["seed"], info["planned"]
+        run.x, run.y = info["x"], info["y"]
+        run.saves, run.levels = info["saves"], info["levels"]
+        run.log = [info["log"]]
+        run.results, run.archive = info["results"], info["archive"]
+        run.status = R.INCOMPLETE if run.planned and             run.saves < run.planned else R.DONE
+        self.runs_screen.update_run(run)
+        self.results_screen.show_results(
+            run.results, S.SOURCE_RUN.format(run.folder),
+            archive=run.archive, stopped=run.status == R.INCOMPLETE)
+        self.compare_screen.add_results(run.results, run.archive)
+        if self.runs_screen.shown is run:
+            self.replay_run(run)
+
+    def _run_not_opened(self, run, error):
+        run.status = R.FAILED
+        run.error = S.OPEN_RUN_FAILED.format(run.folder, error)
+        self.runs_screen.update_run(run)
+        self.error(S.ERROR, run.error)
+
+    def replay_run(self, run):
+        """
+        The estimate of a run opened from its folder, with its trace
+        (live.replay), once: it reads all its saves.
+        """
+        if not run.opened or run.x is None or run.estimate is not None                 or getattr(run, "_replaying", False):
+            return
+        run._replaying = True
+        folder, x = run.folder, run.x
+
+        def done(estimate):
+            run._replaying = False
+            run.estimate = estimate
+            self.runs_screen.update_run(run)
+
+        def failed(error):
+            run._replaying = False
+            self.status(S.OPEN_RUN_FAILED.format(run.folder, error))
+
+        self.tasks.run(lambda: live.replay(folder, x), done, failed)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        paths = [u.toLocalFile() for u in event.mimeData().urls()
+                 if u.isLocalFile()]
+        if paths:
+            event.acceptProposedAction()
+            self.open_paths(paths)
 
     # ---------------------------------------------------------------- runs
 

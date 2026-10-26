@@ -27,7 +27,7 @@ from amorph_gui import theme
 from amorph_gui.widgets import Banner, Screen, card, styled_label
 
 COLUMNS = [S.COLUMN_FOLDER, S.COLUMN_SEED, S.COLUMN_STATUS, S.COLUMN_SAVES,
-           S.COLUMN_LEVELS, S.COLUMN_FRACTION_NOW, S.COLUMN_TIME]
+           S.COLUMN_LEVELS, S.COLUMN_TIME]
 STATUS_COLUMN = 2
 
 # What the model plot shows: the posterior mean, the best sample so far or
@@ -102,10 +102,13 @@ class LevelGauge(QWidget):
 
 class RunsScreen(Screen):
     """
-    showResults(run) asks for the results of a run on «Результаты».
+    showResults(run) asks for the results of a run on «Результаты»;
+    estimateWanted(run), for the estimate of a run opened from its folder
+    that has none yet (main_window.replay_run).
     """
 
     showResults = Signal(object)
+    estimateWanted = Signal(object)
 
     def __init__(self, queue, parent=None):
         super().__init__(S.SCREEN_RUNS, parent)
@@ -121,6 +124,7 @@ class RunsScreen(Screen):
         self.stop_button.setEnabled(False)
         self.folder_button = self.add_button(S.OPEN_FOLDER, self.open_folder)
         self.folder_button.setEnabled(False)
+        self.add_button(S.OPEN_RUNS, self.openRunsRequested, S.OPEN_RUNS_TIP)
 
         splitter = QSplitter(Qt.Horizontal)
         splitter.setChildrenCollapsible(False)
@@ -129,7 +133,7 @@ class RunsScreen(Screen):
         splitter.addWidget(self._make_live())
         splitter.setStretchFactor(0, 2)
         splitter.setStretchFactor(1, 3)
-        splitter.setSizes([440, 760])
+        splitter.setSizes([480, 720])
         self.body.addWidget(splitter, 1)
         self._apply_layers()
 
@@ -254,6 +258,7 @@ class RunsScreen(Screen):
         self.levels_done.hide()
         item.addItem(self.levels_done)
         self.trace_plot.setMinimumHeight(170)
+        self._empty_trace_range()
         layout.addWidget(self.trace_plot)
         self.estimate_note = styled_label(S.ESTIMATE_WAITING, "muted")
         layout.addWidget(self.estimate_note)
@@ -352,14 +357,12 @@ class RunsScreen(Screen):
             self.set_header("", S.RUNS_HEADER.format(len(self.rows)))
         i = self.rows.index(run)
         planned = str(run.planned) if run.planned else "∞"
-        estimate = run.estimate
-        fraction = ""
-        if estimate is not None and estimate.get("quantiles") is not None:
-            q = estimate["quantiles"]
-            fraction = S.FRACTION_NOW_CELL.format(q[2], q[1], q[3])
-        cells = [run.name, str(run.seed), R.STATUS_TEXT[run.status],
+        # A run opened from its folder has no time of its own here
+        elapsed = R.format_time(run.elapsed()) if run.started is not None             else "—"
+        seed = "—" if run.seed is None else str(run.seed)
+        cells = [run.name, seed, R.STATUS_TEXT[run.status],
                  "{0} / {1}".format(run.saves, planned), str(run.levels),
-                 fraction, R.format_time(run.elapsed())]
+                 elapsed]
         for j, text in enumerate(cells):
             item = self.table.item(i, j)
             if item is None:
@@ -392,6 +395,15 @@ class RunsScreen(Screen):
             self.log.verticalScrollBar().maximum())
         self.folder_button.setEnabled(True)
         self._show_progress(run)
+        if run.opened and run.estimate is None:
+            self.estimateWanted.emit(run)
+
+    def show_run(self, run):
+        """
+        Choose run in the table.
+        """
+        if run in self.rows:
+            self.table.selectRow(self.rows.index(run))
 
     def _double_clicked(self, row, column):
         run = self.rows[row]
@@ -438,7 +450,10 @@ class RunsScreen(Screen):
             for value in self.stat_values:
                 value.setText("—")
             self.stat_captions[0].setText(S.STAT_SHIFT_NONE)
-            self.estimate_note.setText(S.ESTIMATE_WAITING)
+            self.estimate_note.setText(
+                S.ESTIMATE_REPLAYING if run.opened and e is None
+                else S.ESTIMATE_WAITING)
+            self._empty_trace_range(run.planned)
             return
         self.fraction_value.setText(S.FRACTION_NOW.format(q[2]))
         self.fraction_intervals.setText(S.FRACTION_NOW_INTERVALS.format(
@@ -473,6 +488,12 @@ class RunsScreen(Screen):
         low = max(0.0, float(trace[:, 1].min()) - 0.05)
         high = min(1.0, float(trace[:, 5].max()) + 0.05)
         item.setYRange(low, high, padding=0.0)
+
+    def _empty_trace_range(self, planned=0):
+        # The fraction lies within 0 and 1, over the planned saves
+        item = self.trace_plot.getPlotItem()
+        item.setXRange(0, max(planned or 0, 1), padding=0.01)
+        item.setYRange(0.0, 1.0, padding=0.0)
 
     # --------------------------------------------------------- the model
 

@@ -154,8 +154,6 @@ def test_the_seeds_run_one_after_another(window, qtbot, fake_run, tmp_path):
     screen.table.selectRow(1)
     q = second.estimate["quantiles"]
     assert screen.fraction_value.text() == S.FRACTION_NOW.format(q[2])
-    assert table.item(1, 5).text() == S.FRACTION_NOW_CELL.format(q[2], q[1],
-                                                                 q[3])
     assert screen.trace["q50"].getData()[0][-1] == 60
     for view in ("best", "last", "mean"):
         screen.set_view(view)

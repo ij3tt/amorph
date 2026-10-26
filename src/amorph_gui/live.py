@@ -9,7 +9,8 @@ posterior weight are among the levels.
 The last saved sample alone says little: once the levels are built, the
 sampler sends its particles down to low levels on purpose, and most saves
 fit worse than the posterior. Nothing here needs Qt; update() reads the new
-saves and runs in a worker thread.
+saves and runs in a worker thread, and replay() makes the estimate of a
+run that has ended, opened from its folder.
 """
 
 import os
@@ -47,6 +48,12 @@ SETTLE_ESS = 100
 # The number of draws for the band of the model
 BAND_DRAWS = 400
 
+# The steps in which replay() reads the saves of a run that has ended
+REPLAY_STEPS = 40
+
+# The buffer of the reads of sample.txt, in bytes
+READ_BUFFER = 1 << 22
+
 # What the sampler prints when it has built its last level, and at a save
 DONE_LEVELS = "Done creating levels"
 SAVING = "# Saving particle"
@@ -72,6 +79,10 @@ class LiveEstimate(object):
         self.trace = []
         self.levels_done_at = None
         self.threshold = -np.inf
+        # sample.txt, kept open by replay() between its steps; a sampler at
+        # work gets it opened at each update, which leaves the files of the
+        # run free between them
+        self.handle = None
 
     # ---------------------------------------------------------- reading
 
@@ -97,7 +108,10 @@ class LiveEstimate(object):
             return
         if self.columns is None and not self._read_header(path):
             return
-        with open(path, "rb") as f:
+        # Large reads: on a network or cloud drive small ones are slow
+        held = self.handle is not None
+        f = self.handle if held else open(path, "rb", buffering=READ_BUFFER)
+        try:
             f.seek(self.offset)
             while len(self.fractions) < wanted:
                 start = f.tell()
@@ -116,6 +130,9 @@ class LiveEstimate(object):
                                    for name in CURVES])
                 self._add(curves, info)
             self.offset = f.tell()
+        finally:
+            if not held:
+                f.close()
 
     def _add(self, curves, info):
         k = len(self.fractions)
@@ -151,28 +168,34 @@ class LiveEstimate(object):
 
     # -------------------------------------------------------- the estimate
 
-    def update(self):
+    def update(self, limit=None, info=None, levels=None, curves=True):
         """
-        Read the new saves and return the estimate (see estimate()), or
-        None while there is no save.
+        Read the new saves, up to save number limit if given, and return
+        the estimate (see estimate()), or None while there is no save.
+        info and levels are the rows of sample_info.txt and levels.txt, if
+        already read; without curves, the mean curves and the band are
+        left out.
         """
-        try:
-            with open(os.path.join(self.folder, "sample_info.txt")) as f:
-                info = amorph_results.parse_table(f.read())
-        except OSError:
-            return None
+        if info is None:
+            try:
+                with open(os.path.join(self.folder, "sample_info.txt")) as f:
+                    info = amorph_results.parse_table(f.read())
+            except OSError:
+                return None
         if info.size == 0 or info.shape[1] < 2:
             return None
+        if limit is not None:
+            info = info[:limit]
         self._read_saves(info.shape[0], info)
         self._read_levels_done()
         if not self.fractions:
             return None
-        levels = runfiles.levels_text(self.folder)
-        levels = None if levels is None \
-            else amorph_results.parse_table(levels.decode())
-        return self.estimate(info[:len(self.fractions)], levels)
+        if levels is None:
+            text = runfiles.levels_text(self.folder)
+            levels = None if text is None                 else amorph_results.parse_table(text.decode())
+        return self.estimate(info[:len(self.fractions)], levels, curves)
 
-    def estimate(self, info, levels):
+    def estimate(self, info, levels, curves=True):
         """
         The estimate from the rows of sample_info.txt of the saves read so
         far and the levels (None if levels.txt is not complete): a dict of
@@ -190,8 +213,8 @@ class LiveEstimate(object):
         saves and the quantiles), shift (how far the median moved over the
         last window saves, None while there are too few) and settled; mean (the
         posterior mean of each curve) and band (the 5% and 95% quantiles
-        of the model curve); posterior_levels (the 5% and 95% quantiles of
-        the level of the saves, by weight).
+        of the model curve), unless curves is false; posterior_levels (the
+        5% and 95% quantiles of the level of the saves, by weight).
         """
         m = len(self.fractions)
         fractions = np.array(self.fractions)
@@ -248,9 +271,9 @@ class LiveEstimate(object):
             for k in order[:len(self.kept) - MAX_KEPT]:
                 del self.kept[k]
 
-        kept = np.array(sorted(self.kept))
+        kept = np.array(sorted(self.kept), dtype=int)
         weights = w[kept]
-        if weights.sum() > 0.0:
+        if curves and weights.sum() > 0.0:
             weights = weights / weights.sum()
             stack = np.array([self.kept[k] for k in kept], dtype=float)
             out["mean"] = {name: np.tensordot(weights, stack[:, i, :], 1)
@@ -262,3 +285,31 @@ class LiveEstimate(object):
         out["posterior_levels"] = amorph_results.weighted_quantiles(
             info[:, 0], w, [0.05, 0.95])
         return out
+
+
+def replay(folder, x, steps=REPLAY_STEPS):
+    """
+    The estimate of a run that has ended, with its trace: the saves are
+    read in steps, as if the sampler were writing them, so that the trace
+    shows how the fraction moved. The weights of each step come from the
+    levels the run ended with.
+    """
+    estimate = LiveEstimate(folder, x)
+    with open(os.path.join(folder, "sample_info.txt")) as f:
+        info = amorph_results.parse_table(f.read())
+    text = runfiles.levels_text(folder)
+    levels = None if text is None         else amorph_results.parse_table(text.decode())
+    result = None
+    path = os.path.join(folder, "sample.txt")
+    if os.path.isfile(path):
+        estimate.handle = open(path, "rb", buffering=READ_BUFFER)
+    try:
+        for k in range(1, steps + 1):
+            result = estimate.update(
+                limit=int(np.ceil(len(info) * k / steps)), info=info,
+                levels=levels, curves=(k == steps))
+    finally:
+        if estimate.handle is not None:
+            estimate.handle.close()
+            estimate.handle = None
+    return result
