@@ -737,15 +737,19 @@ CMake.
 
 ```
 python showresults.py                     # в src/, пишет posterior_sample.txt
-python export_pgf.py --data easy_data.txt --out ../doc/figures/pgf
+python export_pgf.py --out ../doc/figures/pgf
 cd ../doc/figures && pdflatex xrd_fit.tex  # пишет xrd_fit.pdf
 ```
 
 или, всё в одну команду,
 
 ```
-bash scripts/make_xrd_figure.sh easy_data.txt
+bash scripts/make_xrd_figure.sh
 ```
+
+Файл данных — тот, что указан в `data_file` в `config.yaml`, как и для
+сэмплера; `--data` (или первый аргумент `make_xrd_figure.sh`) задаёт
+другой, а `--config` — другой `config.yaml`.
 
 Таблицы, которые записываются в `doc/figures/pgf/`:
 
@@ -766,8 +770,10 @@ bash scripts/make_xrd_figure.sh easy_data.txt
 
 Полезные опции `export_pgf.py`:
 
-* `--title` задаёт заголовок рисунка (это разметка LaTeX, по умолчанию —
-  химическая формула образца).
+* `--title` задаёт заголовок рисунка в разметке LaTeX, например химическую
+  формулу образца: `--title '$\mathbf{Zr_{48}Ni_{15}Cu_{24}Al_{13}}$'`.
+  По умолчанию это имя файла данных. В шрифтах рисунка нет кириллицы: если
+  файл назван по-русски, задайте заголовок латиницей.
 * `--samples N` — число бледных апостериорных кривых на компоненту
   (`0` выключает их).
 * `--max-points N` ограничивает общее число точек в кривых выборок, чтобы

@@ -9,6 +9,15 @@ annotated with a message of more than one line, which is used instead (see
 
 ## Unreleased
 
+### Changed
+
+- `export_pgf.py` reads the data file that `config.yaml` names in
+  `data_file`, like the sampler, unless `--data` names one (`--config`
+  names another `config.yaml`); it read `easy_data.txt`. The title of the
+  figure is the name of the data file unless `--title` gives one; it was
+  the formula of one alloy. `scripts/make_xrd_figure.sh` does the same
+  with `src/config.yaml`.
+
 ### Build and CI
 
 - The GitVerse mirror of a release waits up to 20 minutes for the GitHub

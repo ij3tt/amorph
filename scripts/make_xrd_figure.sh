@@ -4,12 +4,14 @@
 #     bash scripts/make_xrd_figure.sh [data file] [title]
 #
 # The posterior samples (src/posterior_sample.txt) have to exist; run
-# "python showresults.py" in the src folder first.
+# "python showresults.py" in the src folder first. Without a data file (or
+# with ""), the data file is the one src/config.yaml names; without a
+# title, the title is the name of the data file.
 
 set -e
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-DATA="${1:-easy_data.txt}"
+DATA="${1:-}"
 OUT="${ROOT}/doc/figures/pgf"
 
 if command -v python3 >/dev/null 2>&1; then
@@ -23,15 +25,18 @@ if [ ! -f "${ROOT}/src/posterior_sample.txt" ]; then
     exit 1
 fi
 
-echo "Exporting the tables ..."
-if [ -n "$2" ]; then
-    "${PY}" "${ROOT}/src/export_pgf.py" --data "${DATA}" \
-        --posterior "${ROOT}/src/posterior_sample.txt" --out "${OUT}" \
-        --title "$2"
+args=(--posterior "${ROOT}/src/posterior_sample.txt" --out "${OUT}")
+if [ -n "${DATA}" ]; then
+    args+=(--data "${DATA}")
 else
-    "${PY}" "${ROOT}/src/export_pgf.py" --data "${DATA}" \
-        --posterior "${ROOT}/src/posterior_sample.txt" --out "${OUT}"
+    args+=(--config "${ROOT}/src/config.yaml")
 fi
+if [ -n "${2:-}" ]; then
+    args+=(--title "$2")
+fi
+
+echo "Exporting the tables ..."
+"${PY}" "${ROOT}/src/export_pgf.py" "${args[@]}"
 
 echo "Compiling the figure ..."
 cd "${ROOT}/doc/figures"

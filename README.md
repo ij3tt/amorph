@@ -730,15 +730,19 @@ draws the figure from them:
 
 ```
 python showresults.py                     # in src/, writes posterior_sample.txt
-python export_pgf.py --data easy_data.txt --out ../doc/figures/pgf
+python export_pgf.py --out ../doc/figures/pgf
 cd ../doc/figures && pdflatex xrd_fit.tex  # writes xrd_fit.pdf
 ```
 
 or, all at once,
 
 ```
-bash scripts/make_xrd_figure.sh easy_data.txt
+bash scripts/make_xrd_figure.sh
 ```
+
+The data file is the one `config.yaml` names in `data_file`, as for the
+sampler; `--data` (or the first argument of `make_xrd_figure.sh`) names
+another, and `--config` another `config.yaml`.
 
 The tables that are written into `doc/figures/pgf/` are
 
@@ -759,8 +763,10 @@ the first line as the header and whitespace as the separator.
 
 Useful options of `export_pgf.py`:
 
-* `--title` sets the title of the figure (it is LaTeX markup, by default the
-  chemical formula of the sample).
+* `--title` sets the title of the figure, as LaTeX markup, for example the
+  chemical formula of the sample: `--title '$\mathbf{Zr_{48}Ni_{15}Cu_{24}Al_{13}}$'`.
+  By default it is the name of the data file. The fonts of the figure have
+  no Cyrillic: for a file named in Cyrillic, give a title in Latin letters.
 * `--samples N` is the number of faint posterior sample curves per component
   (`0` switches them off).
 * `--max-points N` limits the total number of points in the sample curves, so
