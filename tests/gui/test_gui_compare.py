@@ -76,8 +76,12 @@ def test_comparison_table(window, qtbot, archives):
 def test_the_delegate_draws_the_interval(window, qtbot, archives):
     screen = loaded(window, qtbot, [archives["seed5"]])
     window.show_screen(window.screens.index(screen))
+    # The table is wider than its view: bring the interval into sight
+    index = screen.model.index(0, INTERVAL_COLUMN)
+    screen.view.scrollTo(index)
     qtbot.wait(100)
-    rect = screen.view.visualRect(screen.model.index(0, INTERVAL_COLUMN))
+    rect = screen.view.visualRect(index)
+    assert screen.view.viewport().rect().contains(rect.center())
     image = screen.view.viewport().grab().toImage()
     ratio = image.devicePixelRatio()
     colors = {image.pixelColor(int(x * ratio), int(rect.center().y() * ratio))
