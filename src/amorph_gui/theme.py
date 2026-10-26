@@ -196,13 +196,15 @@ QPushButton#danger {{ color: {AMBER_TEXT}; border: 1px solid #C2410C;
 QPushButton#danger:disabled {{ color: #9AA3AF; border-color: {LINE}; }}
 QPushButton#small {{ padding: 4px 10px; font-size: 9pt; }}
 /* A group of buttons of which one is chosen, and the chips that show or
-   hide the layers of a plot */
+   hide the layers of a plot. No text-decoration for a state: Qt sets the
+   font of a widget once, from its first state, and all the chips stayed
+   struck through */
 QPushButton#segment {{ border-radius: 0; padding: 6px 12px; font-size: 9pt; }}
 QPushButton#segment:checked {{ background: {ACCENT}; color: white;
     border-color: {ACCENT}; font-weight: 600; }}
 QPushButton#chip {{ border-radius: 13px; padding: 4px 12px; font-size: 9pt; }}
 QPushButton#chip:!checked {{ color: {MUTED}; background: {GROUND};
-    border-style: dashed; text-decoration: line-through; }}
+    border-style: dashed; }}
 QLabel#okBadge {{ color: {GREEN}; background: {GREEN_SOFT};
     border: 1px solid {GREEN_LINE}; border-radius: 10px; padding: 1px 10px;
     font-weight: 600; font-size: 9pt; }}

@@ -213,7 +213,8 @@ class MainWindow(QMainWindow):
                     and p.lower().endswith(".amorph")]
         for folder in folders:
             archives += runfiles.loose_archives(folder)
-        runs = self.open_runs(folders, quiet=bool(archives)) if folders             else []
+        runs = self.open_runs(folders, quiet=bool(archives)) if folders \
+            else []
         if len(archives) == 1 and not runs:
             self.open_archive(archives[0])
         elif archives:
@@ -285,7 +286,8 @@ class MainWindow(QMainWindow):
         The estimate of a run opened from its folder, with its trace
         (live.replay), once: it reads all its saves.
         """
-        if not run.opened or run.x is None or run.estimate is not None                 or getattr(run, "_replaying", False):
+        if not run.opened or run.x is None or run.estimate is not None \
+                or getattr(run, "_replaying", False):
             return
         run._replaying = True
         folder, x = run.folder, run.x

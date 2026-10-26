@@ -14,6 +14,7 @@ import numpy as np
 import pytest
 
 import amorph_results
+import amorph_stats
 
 from amorph_gui import digest, runfiles
 from amorph_gui import runs as R
@@ -169,7 +170,41 @@ def test_the_seeds_run_one_after_another(window, qtbot, fake_run, tmp_path):
     assert not screen.layer_buttons["xtal"].isChecked()
     screen.layer_buttons["xtal"].setChecked(True)
     assert screen.fills["xtal"].isVisible()
+    # Not struck through: Qt keeps the font of the first state of a
+    # widget, and all the chips stayed struck through
+    assert not screen.layer_buttons["xtal"].font().strikeOut()
     screen.set_view("mean")
+
+    # A poll without a new estimate leaves the plots; a new one redraws
+    def trace_saves():
+        saves = screen.trace["q50"].getData()[0]
+        return 0 if saves is None else len(saves)
+
+    screen.trace["q50"].setData([], [])
+    screen.update_run(second)
+    assert trace_saves() == 0
+    second.estimate = dict(second.estimate)
+    screen.update_run(second)
+    assert trace_saves() > 0
+    assert screen.trace["q50"].getData()[0][-1] == 60
+
+
+def test_the_estimate_follows_the_sampler(fake_run):
+    folder = fake_run[0]
+    x, y = amorph_stats.load_data(os.path.join(folder, "demo_data.txt"))
+    run = R.Run(folder, 5, 60, x, y)
+    # The first poll updates the estimate
+    assert run.estimate_due(0.0)
+    # After an estimate that took 0.1 s, the next poll does again
+    run._estimated_at, run._estimate_took = 10.0, 0.1
+    assert run.estimate_due(10.0 + R.POLL_INTERVAL / 1000.0)
+    # After one that took 2 s, as of a long run on a slow computer, the
+    # polls of the next 8 s do not
+    run._estimate_took = 2.0
+    assert not run.estimate_due(17.0)
+    assert run.estimate_due(18.0)
+    # Without the data, no estimate
+    assert not R.Run(folder, 5, 60, None, None).estimate_due(0.0)
 
 
 def test_stop_keeps_the_complete_saves(window, qtbot, fake_run, tmp_path):

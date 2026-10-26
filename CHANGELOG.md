@@ -25,7 +25,10 @@ Pre-releases (v1.1.0-rc.1, ...) come before the release, on GitHub only.
   sample or the last saved one, with their levels among those of the
   sampler. It used to show only the last saved sample, which once the
   levels are built is usually from a low level and fits the data worse
-  than the posterior.
+  than the posterior. The estimate is updated every second; when it takes
+  longer, as on a slow computer or late in a long run, it waits four
+  times as long as it took, and the plots are redrawn only for a new
+  estimate.
 - «Сравнение»: the options file and the saves of each run, its effective
   sample size, log(Z) against the best run of the same data and settings,
   and its checks; a run 5 nats or more below the best did not converge
@@ -60,6 +63,9 @@ Pre-releases (v1.1.0-rc.1, ...) come before the release, on GitHub only.
   «Настройки» to a few letters, and its hint was cut off; the table of
   «Прогоны» scrolled sideways; the empty plot of the fraction ran from
   -0.4 to 0.4.
+- In rc.1 and rc.2 the plots of «Прогоны» were updated every 5 seconds,
+  behind a fast sampler, and the chips of the layers were all struck
+  through, as if hidden.
 
 ### Build and CI
 

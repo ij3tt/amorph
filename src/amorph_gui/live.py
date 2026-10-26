@@ -48,6 +48,10 @@ SETTLE_ESS = 100
 # The number of draws for the band of the model
 BAND_DRAWS = 400
 
+# The trace keeps at most this many updates: beyond, every other one of
+# all but the last is dropped
+MAX_TRACE = 2000
+
 # The steps in which replay() reads the saves of a run that has ended
 REPLAY_STEPS = 40
 
@@ -192,7 +196,8 @@ class LiveEstimate(object):
             return None
         if levels is None:
             text = runfiles.levels_text(self.folder)
-            levels = None if text is None                 else amorph_results.parse_table(text.decode())
+            levels = None if text is None \
+                else amorph_results.parse_table(text.decode())
         return self.estimate(info[:len(self.fractions)], levels, curves)
 
     def estimate(self, info, levels, curves=True):
@@ -246,6 +251,8 @@ class LiveEstimate(object):
                                               QUANTILES)
         if not self.trace or self.trace[-1][0] < m:
             self.trace.append([m] + q)
+            if len(self.trace) > MAX_TRACE:
+                self.trace = self.trace[:-1:2] + self.trace[-1:]
         trace = np.array(self.trace)
         out.update(quantiles=q, effective_sample_size=float(
             s["effective_sample_size"]), log_z=float(s["log_z"]),
@@ -298,7 +305,8 @@ def replay(folder, x, steps=REPLAY_STEPS):
     with open(os.path.join(folder, "sample_info.txt")) as f:
         info = amorph_results.parse_table(f.read())
     text = runfiles.levels_text(folder)
-    levels = None if text is None         else amorph_results.parse_table(text.decode())
+    levels = None if text is None \
+        else amorph_results.parse_table(text.decode())
     result = None
     path = os.path.join(folder, "sample.txt")
     if os.path.isfile(path):

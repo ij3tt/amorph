@@ -116,6 +116,8 @@ class RunsScreen(Screen):
         self.rows = []
         self.shown = None
         self._data_of = None
+        # What the plots were last drawn from (_show_progress)
+        self._drawn = None
         self.view = "mean"
         self.layers = {key: True for key, _ in LAYERS}
         self.set_header("", S.NO_RUNS)
@@ -358,7 +360,8 @@ class RunsScreen(Screen):
         i = self.rows.index(run)
         planned = str(run.planned) if run.planned else "∞"
         # A run opened from its folder has no time of its own here
-        elapsed = R.format_time(run.elapsed()) if run.started is not None             else "—"
+        elapsed = R.format_time(run.elapsed()) if run.started is not None \
+            else "—"
         seed = "—" if run.seed is None else str(run.seed)
         cells = [run.name, seed, R.STATUS_TEXT[run.status],
                  "{0} / {1}".format(run.saves, planned), str(run.levels),
@@ -432,6 +435,16 @@ class RunsScreen(Screen):
             self.error.show()
         else:
             self.error.hide()
+        # The plots are redrawn only when what they show has changed: the
+        # estimate, or the last sample while there is no estimate. A poll
+        # that brought no new estimate leaves them, which spares a slow
+        # computer the drawing
+        drawn = (run, run.status, run.planned, run.estimate,
+                 run.sample if run.estimate is None else None)
+        if self._drawn is not None and all(
+                a is b for a, b in zip(drawn, self._drawn)):
+            return
+        self._drawn = drawn
         self._show_estimate(run)
         self._show_model(run)
 

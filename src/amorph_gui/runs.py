@@ -1,9 +1,10 @@
 """
 The runs of the sampler: one QProcess at a time, in the folder of the run.
-While it works, a worker thread counts its saves and levels and reads its
-last saved sample every second, and every few seconds updates the
-estimate of the run (live.LiveEstimate); when it ends, another worker
-post-processes it and writes the run archive, while the next seed runs.
+While it works, a worker thread counts its saves and levels, reads its
+last saved sample and updates the estimate of the run (live.LiveEstimate)
+every second, or less often if the estimate takes long; when it ends,
+another worker post-processes it and writes the run archive, while the
+next seed runs.
 """
 
 import codecs
@@ -42,8 +43,11 @@ STATUS_TEXT = {WAITING: S.STATUS_WAITING, RUNNING: S.STATUS_RUNNING,
 # How often the progress of the sampler is read, in milliseconds
 POLL_INTERVAL = 1000
 
-# How often the estimate of a running sampler is computed, in seconds
-ESTIMATE_INTERVAL = 5.0
+# The estimate of a running sampler is updated at each poll, unless it
+# takes long: then the next one waits this many times as long as the last
+# one took, so that the plots follow a fast sampler and the estimate of a
+# long run keeps the computer free
+ESTIMATE_PAUSE = 4.0
 
 
 class Run(object):
@@ -80,6 +84,7 @@ class Run(object):
         self.estimate = None
         self.live = live.LiveEstimate(folder, x) if x is not None else None
         self._estimated_at = None
+        self._estimate_took = 0.0
         self._decoder = codecs.getincrementaldecoder("utf-8")("replace")
         self._polling = False
         self._poll_again = False
@@ -96,6 +101,17 @@ class Run(object):
 
     def log_text(self):
         return "".join(self.log)
+
+    def estimate_due(self, now):
+        """
+        Whether a poll at time now updates the estimate: the first one
+        does, and then each one once the pause since the last estimate is
+        ESTIMATE_PAUSE times as long as that estimate took.
+        """
+        if self.live is None:
+            return False
+        return self._estimated_at is None or \
+            now - self._estimated_at >= ESTIMATE_PAUSE * self._estimate_took
 
 
 def format_time(seconds):
@@ -328,8 +344,8 @@ class RunQueue(QObject):
 
     def _poll(self, run, final=False):
         """
-        Read the progress of the sampler of run, and every
-        ESTIMATE_INTERVAL seconds (or now, if final) its estimate.
+        Read the progress of the sampler of run and update its estimate:
+        now if final, else when it is due (Run.estimate_due).
         """
         if final:
             run._estimated_at = None
@@ -339,15 +355,17 @@ class RunQueue(QObject):
         run._polling = True
         folder, reader, estimator = run.folder, run.reader, run.live
         now = time.monotonic()
-        due = estimator is not None and (
-            run._estimated_at is None
-            or now - run._estimated_at >= ESTIMATE_INTERVAL)
+        due = run.estimate_due(now)
         if due:
             run._estimated_at = now
 
         def job():
             p = runfiles.progress(folder, reader)
-            p["estimate"] = estimator.update() if due else None
+            p["estimate"] = None
+            if due:
+                start = time.monotonic()
+                p["estimate"] = estimator.update()
+                p["took"] = time.monotonic() - start
             return p
 
         def done(p):
@@ -357,6 +375,8 @@ class RunQueue(QObject):
                 run.sample = p["sample"]
             if p["estimate"] is not None:
                 run.estimate = p["estimate"]
+            if "took" in p:
+                run._estimate_took = p["took"]
             if run.status == RUNNING:
                 self._save_levels(run, p["levels_text"])
             self.changed.emit(run)

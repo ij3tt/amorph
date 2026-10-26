@@ -250,7 +250,8 @@ It has four screens, listed on the left:
   there. The seeds (seed, seed + 1, ...) run one after another. The
   screen shows the number of saves and levels and the time, the output of
   the sampler (also kept in the folder as `run.log`), and the estimate of
-  the run so far, computed every few seconds from all its saves with their
+  the run so far, computed every second (less often on a slow computer or
+  late in a long run, when it takes longer) from all its saves with their
   posterior weights, as the post-processing computes them: the median of
   the amorphous fraction with its 50% and 90% intervals, a plot of how
   they moved over the saves, the effective sample size and log(Z), and
