@@ -319,7 +319,11 @@ It has four screens, listed on the left:
   Markdown.
 
 «Открыть архив…», on every screen, shows an archive on «Результаты».
-As «Итог» says, the fraction is a ratio of integrated intensities, not a
+A «?» next to a card, a figure or a group of settings explains in plain
+words what it shows (the 50% and 90% intervals, the levels, ESS,
+log(Z), the checks, each figure), and «Справка» (F1) has all these
+explanations on one page; the numbers, columns and buttons explain
+themselves in their tooltips. As «Итог» says, the fraction is a ratio of integrated intensities, not a
 mass fraction, and the spread between seeds is the run-to-run error of
 the sampler, not the posterior interval (see "Recommended settings and
 calibration"). The numbers and figures are those of `amorph_stats.py`,

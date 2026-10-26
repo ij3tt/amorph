@@ -1,24 +1,27 @@
 """
 Widgets that the screens share, in the look of theme.py: the white header
 of a screen with its description and buttons and «Открыть архив…», a
-card, an inline message, a diagnostic card with the icon of its level, the
-point-and-interval bar of the amorphous fraction, and a matplotlib figure
-of amorph_results.FIGURES in a card with a button that saves it as PNG.
+card, the «?» that explains what it stands next to, an inline message, a
+diagnostic card with the icon of its level, the point-and-interval bar of
+the amorphous fraction, and a matplotlib figure of amorph_results.FIGURES
+in a card with a button that saves it as PNG.
 """
 
+import html
 import os
 
 import matplotlib
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
-from PySide6.QtCore import QPointF, QRectF, QSize, Qt, Signal
+from PySide6.QtCore import QPoint, QPointF, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import (QFileDialog, QFrame, QHBoxLayout, QLabel,
                                QMessageBox, QPushButton, QSizePolicy,
-                               QVBoxLayout, QWidget)
+                               QToolButton, QVBoxLayout, QWidget)
 
 import amorph_archive
 
+from amorph_gui import helptext
 from amorph_gui import strings as S
 from amorph_gui import theme
 
@@ -31,6 +34,19 @@ ACCENT = QColor(theme.ACCENT)
 # The height of the header bar of a screen, and of the brand above the
 # navigation, which continue each other
 HEADER_HEIGHT = 58
+
+# The width of the explanation that a «?» opens, in pixels
+HELP_WIDTH = 440
+
+
+def tooltip(*lines):
+    """
+    A tooltip of lines of plain text that wraps: Qt wraps the text of a
+    tooltip only if it is rich text, and shows plain text in one line
+    however long.
+    """
+    return "<p>{0}</p>".format("<br>".join(
+        html.escape(line, quote=False) for line in lines if line))
 
 
 class ElidedLabel(QLabel):
@@ -95,7 +111,7 @@ class Screen(QWidget):
         self.header.addSpacing(4)
         self.header.addWidget(self.header_text, 1)
         self.archive_button = QPushButton(S.OPEN_ARCHIVE)
-        self.archive_button.setToolTip(S.OPEN_ARCHIVE_TIP)
+        self.archive_button.setToolTip(tooltip(S.OPEN_ARCHIVE_TIP))
         self.archive_button.clicked.connect(self.openArchiveRequested)
         self.header.addWidget(self.archive_button)
         layout.addWidget(bar)
@@ -127,7 +143,7 @@ class Screen(QWidget):
         if kind:
             button.setObjectName(kind)
         if tip:
-            button.setToolTip(tip)
+            button.setToolTip(tooltip(tip))
         button.clicked.connect(slot)
         self.header.insertWidget(self.header.count() - 1, button)
         return button
@@ -140,10 +156,107 @@ class Screen(QWidget):
         self.errorReported.emit(title, text)
 
 
-def card(title=None, right=None, margins=16, spacing=10):
+class HelpPopup(QFrame):
     """
-    A white card with a title, and a widget on the right of the title (a
-    legend, a button). Returns the card and the layout of its content.
+    The explanation of a topic of helptext under its «?», until a click
+    elsewhere; its link opens the topic on «Справка».
+    """
+
+    def __init__(self, topic, button):
+        super().__init__(button, Qt.Popup)
+        self.topic = topic
+        self.setObjectName("helpPopup")
+        self.setAttribute(Qt.WA_StyledBackground, True)
+        self.setAttribute(Qt.WA_DeleteOnClose, True)
+        title, _, body = helptext.TOPICS[topic]
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 12, 16, 12)
+        layout.setSpacing(8)
+        heading = QLabel(title)
+        heading.setObjectName("cardTitle")
+        heading.setWordWrap(True)
+        layout.addWidget(heading)
+        self.text = QLabel(body)
+        self.text.setObjectName("helpText")
+        self.text.setTextFormat(Qt.RichText)
+        self.text.setWordWrap(True)
+        layout.addWidget(self.text)
+        more = QLabel('<a href="help">{0}</a>'.format(S.HELP_MORE))
+        more.setTextFormat(Qt.RichText)
+        more.linkActivated.connect(self.open_help)
+        layout.addWidget(more, 0, Qt.AlignRight)
+        self.setFixedWidth(HELP_WIDTH)
+
+    def open_help(self, link=None):
+        window = self.parentWidget().window()
+        self.close()
+        if hasattr(window, "show_help"):
+            window.show_help(self.topic)
+
+    def show_under(self, widget):
+        """
+        Show the popup under widget, or above it where there is no room
+        below, within the screen.
+        """
+        self.adjustSize()
+        area = widget.screen().availableGeometry()
+        below = widget.mapToGlobal(QPoint(0, widget.height() + 4))
+        x = min(max(below.x() - 24, area.left() + 8),
+                area.right() - self.width() - 8)
+        y = below.y()
+        if y + self.height() > area.bottom() - 8:
+            y = widget.mapToGlobal(QPoint(0, 0)).y() - self.height() - 4
+        self.move(x, max(y, area.top() + 8))
+        self.show()
+
+
+class HelpButton(QToolButton):
+    """
+    A small «?» that explains a topic of helptext: briefly as its tooltip,
+    in full in a popup on a click.
+    """
+
+    def __init__(self, topic, parent=None):
+        super().__init__(parent)
+        self.topic = topic
+        self.setText("?")
+        self.setObjectName("help")
+        self.setCursor(Qt.PointingHandCursor)
+        self.setFocusPolicy(Qt.NoFocus)
+        self.setFixedSize(QSize(20, 20))
+        self.setToolTip(tooltip(helptext.short(topic) + " " + S.HELP_CLICK))
+        self.popup = None
+        self.clicked.connect(self.show_popup)
+
+    def show_popup(self):
+        self.popup = HelpPopup(self.topic, self)
+        self.popup.show_under(self)
+        return self.popup
+
+
+def title_row(title, help=None):
+    """
+    The title of a card, with the «?» of its topic of helptext if given,
+    in a row to which the caller adds what goes on the right.
+    """
+    row = QHBoxLayout()
+    row.setSpacing(12)
+    heading = QHBoxLayout()
+    heading.setSpacing(6)
+    label = QLabel(title)
+    label.setObjectName("cardTitle")
+    heading.addWidget(label)
+    if help is not None:
+        heading.addWidget(HelpButton(help), 0, Qt.AlignVCenter)
+    row.addLayout(heading)
+    return row
+
+
+def card(title=None, right=None, margins=16, spacing=10, help=None):
+    """
+    A white card with a title, the «?» of a topic of helptext next to it,
+    and a widget on the right of the title (a legend, a button). Returns
+    the card and the layout of its content.
     """
     frame = QFrame()
     frame.setObjectName("card")
@@ -152,12 +265,11 @@ def card(title=None, right=None, margins=16, spacing=10):
     layout.setContentsMargins(margins, margins - 2, margins, margins)
     layout.setSpacing(spacing)
     if title is not None or right is not None:
-        row = QHBoxLayout()
-        row.setSpacing(12)
         if title is not None:
-            label = QLabel(title)
-            label.setObjectName("cardTitle")
-            row.addWidget(label)
+            row = title_row(title, help)
+        else:
+            row = QHBoxLayout()
+            row.setSpacing(12)
         row.addStretch(1)
         if right is not None:
             row.addWidget(right)
@@ -349,7 +461,7 @@ class FigureView(QFrame):
     """
 
     def __init__(self, results, name, title, draw, size=(9.0, 5.0),
-                 report_error=None, parent=None):
+                 report_error=None, help=None, parent=None):
         super().__init__(parent)
         self.report_error = report_error
         self.results = results
@@ -363,7 +475,12 @@ class FigureView(QFrame):
         label = QLabel(title)
         label.setObjectName("cardTitle")
         label.setWordWrap(True)
-        row.addWidget(label, 1)
+        row.addWidget(label)
+        self.help_button = None
+        if help is not None:
+            self.help_button = HelpButton(help)
+            row.addWidget(self.help_button, 0, Qt.AlignVCenter)
+        row.addStretch(1)
         button = QPushButton(S.SAVE_PNG)
         button.setObjectName("small")
         button.setToolTip(S.SAVE_PNG_TIP)

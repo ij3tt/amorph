@@ -50,6 +50,12 @@ Pre-releases (v1.1.0-rc.1, ...) come before the release, on GitHub only.
   computer from their folders, many at a time: each on «Прогоны» with its
   output and its estimate rebuilt from its saves, on «Результаты» and on
   «Сравнение». A run without an up-to-date archive is post-processed.
+- Explanations in the GUI: a «?» next to each card, figure and group of
+  settings explains in plain words what it shows, and «Справка» (F1) has
+  all these explanations on one page; the numbers, the columns of the
+  tables, the views and the layers have tooltips. The intervals read
+  "с вероятностью 50% — от … до …" instead of "50% [ , ]", and the
+  column «Доля [25%, 75%]» of «Сравнение» is «Доля [50% интервал]».
 - A splash screen shows as soon as the GUI starts, with the step under way:
   the first start of a newly unpacked package can take a minute while the
   system checks its files, and without a window the program was started

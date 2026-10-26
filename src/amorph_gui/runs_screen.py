@@ -21,10 +21,12 @@ from PySide6.QtWidgets import (QAbstractItemView, QButtonGroup, QGridLayout,
                                QScrollArea, QSplitter, QTableWidget,
                                QTableWidgetItem, QVBoxLayout, QWidget)
 
+from amorph_gui import helptext
 from amorph_gui import runs as R
 from amorph_gui import strings as S
 from amorph_gui import theme
-from amorph_gui.widgets import Banner, Screen, card, styled_label
+from amorph_gui.widgets import (Banner, HelpButton, Screen, card,
+                                styled_label, title_row, tooltip)
 
 COLUMNS = [S.COLUMN_FOLDER, S.COLUMN_SEED, S.COLUMN_STATUS, S.COLUMN_SAVES,
            S.COLUMN_LEVELS, S.COLUMN_TIME]
@@ -145,11 +147,14 @@ class RunsScreen(Screen):
     # -------------------------------------------------------------- layout
 
     def _make_queue(self):
-        queue_card, layout = card(S.QUEUE_TITLE)
+        queue_card, layout = card(S.QUEUE_TITLE, help="queue")
         self.hint = styled_label(S.NO_RUNS, "muted")
         layout.addWidget(self.hint)
         self.table = QTableWidget(0, len(COLUMNS))
-        self.table.setHorizontalHeaderLabels(COLUMNS)
+        for i, (name, tip) in enumerate(zip(COLUMNS, S.RUNS_COLUMN_TIPS)):
+            item = QTableWidgetItem(name)
+            item.setToolTip(tooltip(tip))
+            self.table.setHorizontalHeaderItem(i, item)
         self.table.verticalHeader().setVisible(False)
         self.table.verticalHeader().setDefaultSectionSize(38)
         self.table.setShowGrid(False)
@@ -188,7 +193,7 @@ class RunsScreen(Screen):
         outer.addWidget(self._make_estimate())
         outer.addWidget(self._make_model())
 
-        log_card, layout = card(S.LOG)
+        log_card, layout = card(S.LOG, help="log")
         self.log = QPlainTextEdit()
         self.log.setObjectName("log")
         self.log.setReadOnly(True)
@@ -206,14 +211,17 @@ class RunsScreen(Screen):
         return scroll
 
     def _make_estimate(self):
-        estimate_card, layout = card(S.ESTIMATE_TITLE)
+        estimate_card, layout = card(S.ESTIMATE_TITLE, help="estimate")
         row = QHBoxLayout()
         row.setSpacing(16)
         self.fraction_value = QLabel("—")
         self.fraction_value.setObjectName("liveFraction")
+        self.fraction_value.setToolTip(tooltip(S.FRACTION_NOW_TIP))
         row.addWidget(self.fraction_value)
         self.fraction_intervals = QLabel()
         self.fraction_intervals.setObjectName("mono")
+        self.fraction_intervals.setWordWrap(True)
+        self.fraction_intervals.setToolTip(tooltip(S.INTERVALS_TIP))
         row.addWidget(self.fraction_intervals, 1, Qt.AlignBottom)
         self.settled = QLabel()
         self.settled.hide()
@@ -224,11 +232,15 @@ class RunsScreen(Screen):
         stats.setHorizontalSpacing(16)
         self.stat_values = []
         self.stat_captions = []
+        tips = (S.STAT_SHIFT_TIP, helptext.short("ess"),
+                helptext.short("log_z"))
         for i, caption in enumerate((S.STAT_SHIFT_NONE, S.STAT_ESS,
                                      S.STAT_LOG_Z)):
             value = QLabel("—")
             value.setObjectName("stat")
+            value.setToolTip(tooltip(tips[i]))
             text = styled_label(caption, "muted")
+            text.setToolTip(tooltip(tips[i]))
             stats.addWidget(value, 0, i)
             stats.addWidget(text, 1, i)
             stats.setColumnStretch(i, 1)
@@ -268,10 +280,8 @@ class RunsScreen(Screen):
 
     def _make_model(self):
         model_card, layout = card()
-        top = QHBoxLayout()
-        title = QLabel(S.MODEL_TITLE)
-        title.setObjectName("cardTitle")
-        top.addWidget(title, 1)
+        top = title_row(S.MODEL_TITLE, "model_views")
+        top.addStretch(1)
         self.view_buttons = {}
         group = QButtonGroup(self)
         group.setExclusive(True)
@@ -282,6 +292,7 @@ class RunsScreen(Screen):
             button.setObjectName("segment")
             button.setCheckable(True)
             button.setChecked(key == self.view)
+            button.setToolTip(tooltip(S.VIEW_TIPS[key]))
             button.clicked.connect(lambda checked, k=key: self.set_view(k))
             group.addButton(button)
             segments.addWidget(button)
@@ -297,11 +308,13 @@ class RunsScreen(Screen):
             button.setObjectName("chip")
             button.setCheckable(True)
             button.setChecked(True)
-            button.setToolTip(S.LAYER_TIP)
+            button.setToolTip(tooltip(S.LAYER_TIPS[key] + ". " +
+                                       S.LAYER_SWITCH))
             button.toggled.connect(
                 lambda on, k=key: self.set_layer(k, on))
             chips.addWidget(button)
             self.layer_buttons[key] = button
+        chips.addWidget(HelpButton("layers"), 0, Qt.AlignVCenter)
         chips.addStretch(1)
         layout.addLayout(chips)
 
@@ -339,9 +352,15 @@ class RunsScreen(Screen):
         self.view_banner = Banner()
         layout.addWidget(self.view_banner)
 
+        levels_row = QHBoxLayout()
+        levels_row.setSpacing(6)
         self.levels_text = styled_label(S.LEVELS_TITLE, "muted")
-        layout.addWidget(self.levels_text)
+        levels_row.addWidget(self.levels_text)
+        levels_row.addWidget(HelpButton("levels"), 0, Qt.AlignVCenter)
+        levels_row.addStretch(1)
+        layout.addLayout(levels_row)
         self.gauge = LevelGauge()
+        self.gauge.setToolTip(tooltip(helptext.short("levels")))
         layout.addWidget(self.gauge)
         self.gauge_legend = QLabel()
         self.gauge_legend.setTextFormat(Qt.RichText)
@@ -472,6 +491,8 @@ class RunsScreen(Screen):
         self.fraction_intervals.setText(S.FRACTION_NOW_INTERVALS.format(
             q[1], q[3], q[0], q[4]))
         self.settled.setText(S.SETTLED if e["settled"] else S.UNSETTLED)
+        self.settled.setToolTip(tooltip(S.SETTLED_TIP if e["settled"]
+                                        else S.UNSETTLED_TIP))
         self.settled.setObjectName("okBadge" if e["settled"]
                                    else "waitBadge")
         # The style sheet looks at the name only when the label is polished

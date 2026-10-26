@@ -205,6 +205,16 @@ QPushButton#segment:checked {{ background: {ACCENT}; color: white;
 QPushButton#chip {{ border-radius: 13px; padding: 4px 12px; font-size: 9pt; }}
 QPushButton#chip:!checked {{ color: {MUTED}; background: {GROUND};
     border-style: dashed; }}
+/* The «?» next to a title, and the explanation that it opens (a window of
+   its own: square, as its corners would show the desktop) */
+QToolButton#help {{ color: {MUTED}; background: {SURFACE};
+    border: 1px solid {FIELD_LINE}; border-radius: 10px; font-weight: 700;
+    font-size: 8pt; padding: 0; }}
+QToolButton#help:hover {{ color: {ACCENT}; border-color: {ACCENT};
+    background: {ACCENT_SOFT}; }}
+QFrame#helpPopup {{ background: {SURFACE}; border: 1px solid {FIELD_LINE}; }}
+QFrame#helpPopup QLabel {{ background: transparent; }}
+QTextBrowser#help {{ background: {SURFACE}; border: none; }}
 QLabel#okBadge {{ color: {GREEN}; background: {GREEN_SOFT};
     border: 1px solid {GREEN_LINE}; border-radius: 10px; padding: 1px 10px;
     font-weight: 600; font-size: 9pt; }}

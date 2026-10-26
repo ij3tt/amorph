@@ -22,11 +22,12 @@ import amorph_results
 import amorph_seeds
 import amorph_tex
 
-from amorph_gui import digest
+from amorph_gui import digest, helptext
 from amorph_gui import strings as S
 from amorph_gui import theme
-from amorph_gui.widgets import (Banner, Card, FigureView, IntervalBar, Screen,
-                                card, styled_label)
+from amorph_gui.widgets import (Banner, Card, FigureView, HelpButton,
+                                IntervalBar, Screen, card, styled_label,
+                                tooltip)
 
 # The figures of each tab, by their names in amorph_results.FIGURES
 MODEL_FIGURES = ["model", "residuals"]
@@ -123,6 +124,7 @@ class ResultsScreen(Screen):
             page = QWidget()
             QVBoxLayout(page).setContentsMargins(0, 0, 0, 0)
             index = self.tabs.addTab(page, title)
+            self.tabs.setTabToolTip(index, tooltip(S.TAB_TIPS[index]))
             self._builders[index] = build
         self.tabs.setCurrentIndex(0)
         self.tabs.blockSignals(False)
@@ -148,21 +150,29 @@ class ResultsScreen(Screen):
         badge = None
         if any(level == digest.RED for level, _, _ in cards):
             badge = styled_label(S.UNRELIABLE, "badge", wrap=False)
-        fraction_card, column = card(S.FRACTION_TITLE, badge)
+        fraction_card, column = card(S.FRACTION_TITLE, badge, help="fraction")
         if d is None:
             column.addWidget(_note(S.NO_DIAGNOSIS, "warning"))
         else:
             f = d["fraction"]
             value = QLabel("{0:.3f}".format(f["q50"]))
             value.setObjectName("fraction")
+            value.setToolTip(tooltip(S.FRACTION_TIP))
             column.addWidget(value)
+            row = QHBoxLayout()
+            row.setSpacing(6)
             intervals = QLabel(S.FRACTION_INTERVALS.format(
                 f["q25"], f["q75"], f["q05"], f["q95"]))
             intervals.setObjectName("mono")
             intervals.setWordWrap(True)
-            column.addWidget(intervals)
-            column.addWidget(IntervalBar([f["q05"], f["q25"], f["q50"],
-                                          f["q75"], f["q95"]]))
+            intervals.setToolTip(tooltip(S.INTERVALS_TIP))
+            row.addWidget(intervals, 1)
+            row.addWidget(HelpButton("intervals"), 0, Qt.AlignTop)
+            column.addLayout(row)
+            bar = IntervalBar([f["q05"], f["q25"], f["q50"], f["q75"],
+                               f["q95"]])
+            bar.setToolTip(tooltip(helptext.short("intervals")))
+            column.addWidget(bar)
             p = d.get("fraction_in_range")
             if p and p.get("range"):
                 column.addWidget(styled_label(S.FRACTION_IN_RANGE.format(
@@ -172,13 +182,16 @@ class ResultsScreen(Screen):
         column.addStretch(1)
         top.addWidget(fraction_card, 2)
 
-        diagnosis_card, column = card(S.DIAGNOSIS_TITLE, spacing=8)
+        diagnosis_card, column = card(S.DIAGNOSIS_TITLE, spacing=8,
+                                      help="diagnosis")
         for level, title, text in cards:
             column.addWidget(Card(level, title, text))
         if d is not None:
             posterior = len(r.posterior) if r.posterior is not None else 0
-            column.addWidget(styled_label(S.ESS.format(
-                d["effective_sample_size"], d["saves"], posterior), "muted"))
+            ess = styled_label(S.ESS.format(d["effective_sample_size"],
+                                            d["saves"], posterior), "muted")
+            ess.setToolTip(tooltip(helptext.short("ess")))
+            column.addWidget(ess)
         column.addWidget(styled_label(S.NOTE_SEEDS, "muted"))
         column.addStretch(1)
         top.addWidget(diagnosis_card, 3)
@@ -218,7 +231,7 @@ class ResultsScreen(Screen):
             ("box", theme.NARROW_FILL, S.LEGEND_NARROW_PART)]))
         legend.setTextFormat(Qt.RichText)
         legend.setObjectName("muted")
-        frame, layout = card(S.DECOMPOSITION_TITLE)
+        frame, layout = card(S.DECOMPOSITION_TITLE, help="decomposition")
         layout.addWidget(legend)
         plot = pg.PlotWidget()
         item = theme.style_plot(plot, S.AXIS_X, S.AXIS_Y)
@@ -248,7 +261,7 @@ class ResultsScreen(Screen):
         weights = np.asarray(d["histogram"]["weights"], dtype=float)
         if weights.size == 0 or weights.max() <= 0.0:
             return None
-        frame, layout = card(S.HISTOGRAM_TITLE)
+        frame, layout = card(S.HISTOGRAM_TITLE, help="histogram")
         plot = pg.PlotWidget()
         item = theme.style_plot(plot, S.FRACTION_TITLE)
         width = np.diff(edges)
@@ -308,7 +321,8 @@ class ResultsScreen(Screen):
                 continue
             title, draw = available[name]
             view = FigureView(r, name, S.FIGURE_TITLES.get(name, title), draw,
-                              size, self.report_error)
+                              size, self.report_error,
+                              help=helptext.FIGURE_TOPICS.get(name))
             self.figure_views[name] = view
             grid.addWidget(view, shown // columns, shown % columns)
             shown += 1
@@ -330,12 +344,17 @@ class ResultsScreen(Screen):
             numbers = _note(S.NO_SAMPLER, "warning")
         else:
             numbers, layout = card()
+            row = QHBoxLayout()
+            row.setSpacing(8)
             label = QLabel(S.SAMPLER_NUMBERS.format(
                 s["log_z"], s["information"], s["effective_sample_size"]))
             label.setObjectName("sampler_numbers")
             label.setFont(theme.mono(10.5))
             label.setWordWrap(True)
-            layout.addWidget(label)
+            row.addWidget(label, 1)
+            row.addWidget(HelpButton("log_z"), 0, Qt.AlignVCenter)
+            row.addWidget(HelpButton("ess"), 0, Qt.AlignVCenter)
+            layout.addLayout(row)
         return self._figures(SAMPLER_FIGURES, before=numbers)
 
     def _report(self):

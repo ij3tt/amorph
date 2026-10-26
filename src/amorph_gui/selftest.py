@@ -28,7 +28,8 @@ from amorph_gui.app import application  # noqa: E402
 from amorph_gui import SRC_DIR, digest  # noqa: E402
 from amorph_gui import runs as R  # noqa: E402
 from amorph_gui import strings as S  # noqa: E402
-from amorph_gui.main_window import COMPARE, DATA, RESULTS, RUNS  # noqa: E402
+from amorph_gui.main_window import COMPARE, DATA, HELP  # noqa: E402
+from amorph_gui.main_window import RESULTS, RUNS  # noqa: E402
 from amorph_gui.main_window import MainWindow  # noqa: E402
 from amorph_gui.preferences import Preferences  # noqa: E402
 
@@ -252,6 +253,13 @@ class SelfTest(object):
         wait_until(lambda: w.results_screen.archive == archive,
                    "the archive to open")
         self.shot("12-results-archive", RESULTS, 0)
+
+        # «Справка» at the topic of «Прогоны», as F1 opens it there
+        w.show_screen(RUNS)
+        w.show_help()
+        self.check(w.help_screen.topic == "estimate",
+                   "«Справка» did not open at the estimate")
+        self.shot("13-help", HELP)
         self.check(not w.errors, "errors: {0}".format(w.errors))
 
 

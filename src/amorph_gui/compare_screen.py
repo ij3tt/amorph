@@ -38,8 +38,8 @@ import amorph_tex
 from amorph_gui import digest, figures
 from amorph_gui import strings as S
 from amorph_gui import theme
-from amorph_gui.widgets import Banner, Screen, card, paint_interval, \
-    styled_label
+from amorph_gui.widgets import Banner, HelpButton, Screen, card, \
+    paint_interval, styled_label, title_row, tooltip
 
 COLUMNS = [S.COLUMN_ARCHIVE, S.COLUMN_DATA, S.COLUMN_SETTINGS, S.COLUMN_SEED,
            S.COLUMN_SAMPLER, S.COLUMN_ESS, S.COLUMN_LOG_Z, S.COLUMN_FRACTION,
@@ -112,9 +112,8 @@ class ComparisonModel(QAbstractTableModel):
             return COLUMNS[section]
         if role == Qt.ToolTipRole:
             if section == INTERVAL_COLUMN:
-                return S.COLUMN_INTERVAL_TIP
-            if section == 0:
-                return S.COLUMN_CHOSEN_TIP
+                return tooltip(S.COLUMN_INTERVAL_TIP)
+            return tooltip(S.COLUMN_TIPS[section])
         return None
 
     def flags(self, index):
@@ -278,7 +277,8 @@ class CompareScreen(Screen):
 
         # What the table shows: the spread of the seeds against that of the
         # settings
-        summary_card, summary_layout = card(S.SUMMARY_TITLE)
+        summary_card, summary_layout = card(S.SUMMARY_TITLE,
+                                            help="compare_summary")
         self.summary = QLabel()
         self.summary.setWordWrap(True)
         self.summary.setObjectName("summary")
@@ -313,7 +313,7 @@ class CompareScreen(Screen):
     # -------------------------------------------------------------- layout
 
     def _make_table(self):
-        table_card, table_layout = card(S.TABLE_TITLE)
+        table_card, table_layout = card(S.TABLE_TITLE, help="compare_table")
         self.model = ComparisonModel(self)
         self.view = QTableView()
         self.view.setShowGrid(False)
@@ -347,13 +347,16 @@ class CompareScreen(Screen):
         return table_card
 
     def _make_joint(self):
-        joint_card, layout = card(S.JOINT_TITLE)
+        joint_card, layout = card(S.JOINT_TITLE, help="joint")
         layout.addWidget(styled_label(S.JOINT_CAPTION, "muted"))
         self.joint_value = QLabel("—")
         self.joint_value.setObjectName("liveFraction")
+        self.joint_value.setToolTip(tooltip(S.FRACTION_TIP))
         layout.addWidget(self.joint_value)
         self.joint_intervals = QLabel()
         self.joint_intervals.setObjectName("mono")
+        self.joint_intervals.setWordWrap(True)
+        self.joint_intervals.setToolTip(tooltip(S.INTERVALS_TIP))
         layout.addWidget(self.joint_intervals)
         stats = QGridLayout()
         stats.setHorizontalSpacing(16)
@@ -362,8 +365,11 @@ class CompareScreen(Screen):
                                      S.JOINT_ESS)):
             value = QLabel("—")
             value.setObjectName("stat")
+            value.setToolTip(tooltip(S.JOINT_TIPS[i]))
+            text = styled_label(caption, "muted")
+            text.setToolTip(tooltip(S.JOINT_TIPS[i]))
             stats.addWidget(value, 0, i)
-            stats.addWidget(styled_label(caption, "muted"), 1, i)
+            stats.addWidget(text, 1, i)
             stats.setColumnStretch(i, 1)
             self.joint_stats.append(value)
         layout.addLayout(stats)
@@ -371,7 +377,13 @@ class CompareScreen(Screen):
         self.notes.setSpacing(8)
         layout.addLayout(self.notes)
 
-        layout.addWidget(styled_label(S.PAPER_TITLE, "muted"))
+        paper_title = QHBoxLayout()
+        paper_title.setSpacing(6)
+        paper_title.addWidget(styled_label(S.PAPER_TITLE, "muted",
+                                           wrap=False))
+        paper_title.addWidget(HelpButton("paper"), 0, Qt.AlignVCenter)
+        paper_title.addStretch(1)
+        layout.addLayout(paper_title)
         paper_row = QHBoxLayout()
         self.paper = QLabel()
         self.paper.setObjectName("mono")
@@ -389,10 +401,8 @@ class CompareScreen(Screen):
 
     def _make_figure(self):
         figure_card, layout = card()
-        top = QHBoxLayout()
-        title = QLabel(S.FIGURE_TITLE)
-        title.setObjectName("cardTitle")
-        top.addWidget(title, 1)
+        top = title_row(S.FIGURE_TITLE, "figure")
+        top.addStretch(1)
         top.addWidget(styled_label(S.FIGURE_STYLE, "muted", wrap=False))
         group = QButtonGroup(self)
         group.setExclusive(True)
@@ -444,7 +454,7 @@ class CompareScreen(Screen):
             if kind:
                 button.setObjectName(kind)
             if tip:
-                button.setToolTip(tip)
+                button.setToolTip(tooltip(tip))
             button.clicked.connect(slot)
             buttons.addWidget(button)
             self.export_buttons[key] = button

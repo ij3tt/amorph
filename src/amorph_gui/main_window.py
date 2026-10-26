@@ -1,8 +1,9 @@
 """
-The main window: the navigation on the left and the four screens. It
-starts the runs that «Данные и модель» asks for, shows the results of
-each run when it has been post-processed, and opens archives for every
-screen's «Открыть архив…».
+The main window: the navigation on the left, the four screens and
+«Справка». It starts the runs that «Данные и модель» asks for, shows the
+results of each run when it has been post-processed, opens archives for
+every screen's «Открыть архив…», and opens «Справка» at a topic for a «?»
+and for F1.
 """
 
 import datetime
@@ -11,7 +12,7 @@ import sys
 import time
 
 from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QPainter
+from PySide6.QtGui import QKeySequence, QPainter, QShortcut
 from PySide6.QtWidgets import (QFileDialog, QHBoxLayout, QLabel,
                                QListWidget, QListWidgetItem, QMainWindow,
                                QMessageBox, QPushButton, QStackedWidget,
@@ -19,19 +20,20 @@ from PySide6.QtWidgets import (QFileDialog, QHBoxLayout, QLabel,
 
 import amorph_archive
 
-from amorph_gui import config, live, preferences, runfiles
+from amorph_gui import config, helptext, live, preferences, runfiles
 from amorph_gui import runs as R
 from amorph_gui import strings as S
 from amorph_gui import theme
 from amorph_gui.compare_screen import CompareScreen
 from amorph_gui.data_screen import DataScreen
+from amorph_gui.help_screen import HelpScreen
 from amorph_gui.results_screen import ResultsScreen
 from amorph_gui.runs import Run, RunQueue
 from amorph_gui.runs_screen import RunsScreen
 from amorph_gui.tasks import Tasks
 from amorph_gui.widgets import HEADER_HEIGHT
 
-DATA, RUNS, RESULTS, COMPARE = range(4)
+DATA, RUNS, RESULTS, COMPARE, HELP = range(5)
 
 
 class Logo(QWidget):
@@ -91,15 +93,19 @@ class MainWindow(QMainWindow):
         self.runs_screen = RunsScreen(self.queue)
         self.results_screen = ResultsScreen(self.tasks)
         self.compare_screen = CompareScreen(self.tasks)
+        self.help_screen = HelpScreen()
         self.screens = [self.data_screen, self.runs_screen,
-                        self.results_screen, self.compare_screen]
+                        self.results_screen, self.compare_screen,
+                        self.help_screen]
 
-        # The steps, numbered as in the design
+        # The steps, numbered as in the design, and «Справка» after them
         self.nav = QListWidget()
         self.nav.setObjectName("nav")
         for i, name in enumerate([S.SCREEN_DATA, S.SCREEN_RUNS,
-                                  S.SCREEN_RESULTS, S.SCREEN_COMPARE]):
-            item = QListWidgetItem("{0}   {1}".format(i + 1, name), self.nav)
+                                  S.SCREEN_RESULTS, S.SCREEN_COMPARE,
+                                  S.SCREEN_HELP]):
+            number = "?" if i == HELP else str(i + 1)
+            item = QListWidgetItem("{0}   {1}".format(number, name), self.nav)
             item.setSizeHint(QSize(0, 44))
         self.nav.setFixedWidth(224)
         self.stack = QStackedWidget()
@@ -134,6 +140,8 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.stack, 1)
         self.setCentralWidget(central)
         self.nav.setCurrentRow(DATA)
+        help_key = QShortcut(QKeySequence(QKeySequence.HelpContents), self)
+        help_key.activated.connect(self.show_help)
 
         self.data_screen.runRequested.connect(self.start_runs)
         self.runs_screen.showResults.connect(self.show_run_results)
@@ -153,6 +161,18 @@ class MainWindow(QMainWindow):
 
     def show_screen(self, index):
         self.nav.setCurrentRow(index)
+
+    def show_help(self, topic=None):
+        """
+        «Справка» at topic, or at the topic of the screen shown (F1).
+        """
+        if topic is None:
+            index = self.stack.currentIndex()
+            if index == HELP:
+                return
+            topic = helptext.SCREEN_TOPICS[index]
+        self.show_screen(HELP)
+        self.help_screen.show_topic(topic)
 
     def status(self, text):
         self.statusBar().showMessage(text, 10000)
