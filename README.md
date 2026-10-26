@@ -686,6 +686,14 @@ version 1.2.0:
    in `CHANGELOG.md`; an annotated tag whose message has more than one line
    (`git tag -a v1.2.0`) gives its message as the notes instead.
 
+To try a version before its release, tag a pre-release first:
+`git tag v1.2.0-rc.1` and `git push origin v1.2.0-rc.1` (or `-beta.1`,
+`-alpha.1`), on the commit to try, with the version of `CMakeLists.txt`
+already set. The workflow builds the same files, named after the tag, and
+makes a GitHub pre-release with the notes of the version. Pre-releases are
+not pushed to GitVerse; once the version is good, tag the release as
+above.
+
 `.gitverse/workflows/release.yml` mirrors the release to GitVerse when the
 same tag is pushed there (`git push gitverse.ru v1.2.0`): it waits for the
 GitHub Release, downloads its seven files, verifies their SHA-256 checksums

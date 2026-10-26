@@ -7,7 +7,12 @@ the GitHub Release are the section of that version below, unless the tag is
 annotated with a message of more than one line, which is used instead (see
 "Releases" in the README). The date of a release is that of its tag.
 
-## Unreleased
+## 1.1.0
+
+The graphical interface shows the estimate of a run while the sampler
+works, reports several seeds of one sample together and draws their
+figures for LaTeX. The sampler and its results are those of 1.0.2.
+Pre-releases (v1.1.0-rc.1, ...) come before the release, on GitHub only.
 
 ### Added
 
@@ -41,6 +46,11 @@ annotated with a message of more than one line, which is used instead (see
 
 - The axes of the plots of the GUI no longer scale numbers with an SI
   prefix: the histogram of the fraction read 200-800 "(x0.001)".
+
+### Build and CI
+
+- A tag v<version>-rc.<n> (or -beta.<n>, -alpha.<n>) makes a GitHub
+  pre-release of the version, with the notes of the version.
 
 ## 1.0.2
 

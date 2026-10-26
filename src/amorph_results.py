@@ -35,7 +35,7 @@ import amorph_stats
 import dnest_functions
 
 # The version of AMORPH, as project() in CMakeLists.txt gives it
-AMORPH_VERSION = "1.0.2"
+AMORPH_VERSION = "1.1.0"
 
 # Quantiles of the curves of the posterior samples
 CURVE_QUANTILES = [0.05, 0.16, 0.5, 0.84, 0.95]

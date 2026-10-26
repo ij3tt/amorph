@@ -12,6 +12,10 @@ name: Release
 #   Its notes are the message of the tag, if it is an annotated tag with a
 #   message of more than one line, or else the section "## <version>" of
 #   CHANGELOG.md (scripts/ci/release_notes.sh).
+# - A pushed tag v<version>-rc.<n> (or -beta.<n>, -alpha.<n>) makes a
+#   pre-release of that version, to be tried before the release: the same
+#   files, named after the tag, and the notes of the version. GitVerse
+#   mirrors releases only.
 # - "Run workflow" on the Actions tab is a dry run, on a branch or a tag:
 #   the same files, named after the version in CMakeLists.txt, are only
 #   uploaded as an artefact, and the notes are shown in the summary of the
@@ -42,6 +46,7 @@ jobs:
     outputs:
       tag: ${{ steps.check.outputs.tag }}
       notes: ${{ steps.check.outputs.notes }}
+      prerelease: ${{ steps.check.outputs.prerelease }}
     steps:
       - uses: actions/checkout@v7
 
@@ -54,11 +59,16 @@ jobs:
               echo "::error::No project(AMORPH VERSION ...) in CMakeLists.txt"
               exit 1
           fi
+          prerelease=false
           if [ "${GITHUB_EVENT_NAME}" = push ]; then
               tag="${GITHUB_REF_NAME}"
-              if [ "${tag}" != "v${version}" ]; then
+              pre="^v${version//./[.]}-(rc|beta|alpha)[.][0-9]+$"
+              if [[ "${tag}" =~ ${pre} ]]; then
+                  prerelease=true
+              elif [ "${tag}" != "v${version}" ]; then
                   echo "::error::The tag is ${tag}, but the version in" \
-                       "CMakeLists.txt is ${version}: tag v${version}"
+                       "CMakeLists.txt is ${version}: tag v${version}, or" \
+                       "v${version}-rc.1 for a pre-release"
                   exit 1
               fi
               # The checkout may leave the tag without its message
@@ -74,6 +84,7 @@ jobs:
               echo "::warning::No release notes for ${tag} yet"
           fi
           echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+          echo "prerelease=${prerelease}" >> "${GITHUB_OUTPUT}"
           {
               echo "notes<<AMORPH_RELEASE_NOTES"
               cat notes.md
@@ -100,6 +111,7 @@ jobs:
     env:
       TAG: ${{ needs.version.outputs.tag }}
       NOTES: ${{ needs.version.outputs.notes }}
+      PRERELEASE: ${{ needs.version.outputs.prerelease }}
     steps:
       - uses: actions/checkout@v7
 
@@ -135,11 +147,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
+          kind=()
+          if [ "${PRERELEASE}" = true ]; then
+              kind=(--prerelease)
+          fi
           if gh release view "${TAG}" > /dev/null 2>&1; then
               # A re-run: replace the files and the notes
               gh release upload "${TAG}" release/* --clobber
-              gh release edit "${TAG}" --notes-file notes.md
+              gh release edit "${TAG}" --notes-file notes.md "${kind[@]}"
           else
               gh release create "${TAG}" release/* --verify-tag \
-                  --title "AMORPH ${TAG#v}" --notes-file notes.md
+                  --title "AMORPH ${TAG#v}" --notes-file notes.md "${kind[@]}"
           fi
