@@ -7,7 +7,11 @@ the GitHub Release are the section of that version below, unless the tag is
 annotated with a message of more than one line, which is used instead (see
 "Releases" in the README). The date of a release is that of its tag.
 
-## Unreleased
+## 1.0.1
+
+The sampler and its results are those of 1.0.0. The figure export takes
+its data file from `config.yaml`, and the releases are also published on
+[GitVerse](https://gitverse.ru/ijjjjke/amorph/releases), from this one on.
 
 ### Changed
 
@@ -16,22 +20,23 @@ annotated with a message of more than one line, which is used instead (see
   names another `config.yaml`); it read `easy_data.txt`. The title of the
   figure is the name of the data file unless `--title` gives one; it was
   the formula of one alloy. `scripts/make_xrd_figure.sh` does the same
-  with `src/config.yaml`.
+  with `src/config.yaml` (#17).
 
 ### Build and CI
 
 - The GitVerse mirror of a release waits up to 20 minutes for the GitHub
   Release to be complete, checking every 20 seconds, then downloads each
   file once; if the release is not complete by then, it says so and how to
-  run it again. The README explains how to publish v1.0.0, tagged before
-  the mirror existed, on GitVerse by hand.
+  run it again (#16). Files larger than 100 MB, which GitVerse refuses
+  (the GUI package for Linux), stay on GitHub, and the notes of the
+  GitVerse Release link to them.
 
 ### Documentation
 
 - README: the runs on 15–70° with four seeds of 10000 saves (the seeds
   disagree by 0.05–0.1, against 0.01 on 20–50°, so the narrower range is
   recommended), and the check that the faster sampler of #14 gives the same
-  results as before.
+  results as before (#16).
 
 ## 1.0.0
 
