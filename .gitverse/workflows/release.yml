@@ -12,6 +12,10 @@ name: Release
 # Linux is about 120 MB): those stay on GitHub only, and the notes of the
 # GitVerse Release link to them. Only a tag whose commit has this file can
 # run it, so GitVerse has the releases from v1.0.1 on.
+#
+# The release is made with a GitVerse API key with Repositories → Write, in
+# the secret RELEASE_API_KEY of the repository (GitVerse does not take
+# secret names that start with GITVERSE_).
 
 on:
   push:
@@ -28,6 +32,18 @@ jobs:
       # The largest release file that GitVerse takes, in bytes
       MAX_SIZE: 100000000
     steps:
+      # Before the wait for the GitHub Release, which may take 20 minutes
+      - name: Check the API key
+        shell: bash
+        env:
+          RELEASE_API_KEY: ${{ secrets.RELEASE_API_KEY }}
+        run: |
+          if [ -z "${RELEASE_API_KEY}" ]; then
+              echo "::error::The repository has no secret RELEASE_API_KEY:" \
+                   "add a GitVerse API key with Repositories → Write"
+              exit 1
+          fi
+
       - uses: actions/checkout@v4
 
       - name: Check the version and read the release notes
@@ -86,7 +102,7 @@ jobs:
       - name: Create or update the GitVerse Release
         uses: actions/create-release@v1
         with:
-          api_key: ${{ secrets.GITVERSE_API_KEY }}
+          api_key: ${{ secrets.RELEASE_API_KEY }}
           title: AMORPH ${{ steps.version.outputs.version }}
           body: ${{ steps.notes.outputs.body }}
           files: release

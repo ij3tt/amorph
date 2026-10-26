@@ -7,6 +7,15 @@ the GitHub Release are the section of that version below, unless the tag is
 annotated with a message of more than one line, which is used instead (see
 "Releases" in the README). The date of a release is that of its tag.
 
+## Unreleased
+
+### Build and CI
+
+- The GitVerse mirror takes its API key from the secret `RELEASE_API_KEY`:
+  GitVerse does not take the name `GITVERSE_API_KEY`, so the mirror of
+  v1.0.1 had no key and failed at the upload. Without the key it now stops
+  at once instead of after the wait for the GitHub Release.
+
 ## 1.0.1
 
 The sampler and its results are those of 1.0.0. The figure export takes
