@@ -1,0 +1,24 @@
+% ---------------------------------------------------------------------------
+% Standalone version of the "seeds" figure. Compile from this folder:
+%
+%     pdflatex xrd_seeds.tex                          PDF
+%     latex xrd_seeds.tex
+%     dvisvgm --no-fonts --exact-bbox xrd_seeds.dvi   SVG
+%
+% The tables in pgf/ are written by the AMORPH GUI («Сравнение»).
+% ---------------------------------------------------------------------------
+% With latex (DVI output) PGF draws for dvisvgm
+\RequirePackage{ifpdf}
+\ifpdf\else\def\pgfsysdriver{pgfsys-dvisvgm.def}\fi
+\documentclass[tikz,border=4pt]{standalone}
+
+\usepackage{pgfplots}
+\usepgfplotslibrary{fillbetween,groupplots}
+\pgfplotsset{compat=1.18}
+
+% A Times-like font, as in the "fit" figure
+\usepackage{newtxtext,newtxmath}
+
+\begin{document}
+\input{xrd_seeds_body.tex}
+\end{document}

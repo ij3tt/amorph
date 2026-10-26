@@ -124,6 +124,16 @@ def test_exports(window, qtbot, archives, tmp_path, monkeypatch):
     with open(png, "rb") as f:
         assert f.read(8) == b"\x89PNG\r\n\x1a\n"
 
+    # The tables of PGFPlots, as export_pgf.py writes them
+    pgf = str(tmp_path / "pgf")
+    screen.write_pgf_data(pgf)
+    qtbot.waitUntil(lambda: screen.tasks.active == 0, timeout=20000)
+    for name in ("xrd_data.dat", "xrd_mean.dat", "xrd_meta.tex",
+                 "xrd_samples.tex", "xrd_samples_model.dat"):
+        assert os.path.isfile(os.path.join(pgf, name))
+    with open(os.path.join(pgf, "xrd_meta.tex")) as f:
+        assert "\\def\\xrdtitle{demo\\_data.txt}\n" in f.read()
+
 
 def test_results_of_a_folder_are_archived_on_export(window, qtbot,
                                                     fake_run, tmp_path):

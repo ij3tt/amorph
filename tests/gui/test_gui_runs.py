@@ -140,6 +140,39 @@ def test_the_seeds_run_one_after_another(window, qtbot, fake_run, tmp_path):
     qtbot.waitUntil(lambda: window.compare_screen.model.rowCount() == 2,
                     timeout=30000)
 
+    # The last estimate of each run, from all its saves, is what the
+    # post-processing found
+    for run in runs:
+        qtbot.waitUntil(lambda run=run: run.estimate is not None
+                        and run.estimate["saves"] == 60, timeout=20000)
+        d = run.results.diagnosis["fraction"]
+        assert run.estimate["quantiles"] == pytest.approx(
+            [d[q] for q in ("q05", "q25", "q50", "q75", "q95")], abs=1E-12)
+
+    # «Прогоны» shows the estimate of the run chosen in the table
+    screen = window.runs_screen
+    screen.table.selectRow(1)
+    q = second.estimate["quantiles"]
+    assert screen.fraction_value.text() == S.FRACTION_NOW.format(q[2])
+    assert table.item(1, 5).text() == S.FRACTION_NOW_CELL.format(q[2], q[1],
+                                                                 q[3])
+    assert screen.trace["q50"].getData()[0][-1] == 60
+    for view in ("best", "last", "mean"):
+        screen.set_view(view)
+        assert screen.view_buttons[view].isChecked()
+        assert screen.lines["model"].getData()[1] is not None
+    best = second.estimate["best"]
+    screen.set_view("best")
+    assert S.VIEW_BEST_TEXT.format(**dict(best, levels=3)) == \
+        screen.view_text.text()
+    # The layers hide and show
+    screen.set_layer("xtal", False)
+    assert not screen.fills["xtal"].isVisible()
+    assert not screen.layer_buttons["xtal"].isChecked()
+    screen.layer_buttons["xtal"].setChecked(True)
+    assert screen.fills["xtal"].isVisible()
+    screen.set_view("mean")
+
 
 def test_stop_keeps_the_complete_saves(window, qtbot, fake_run, tmp_path):
     sampler = fake_sampler(tmp_path, fake_run[0], 30, forever=True)

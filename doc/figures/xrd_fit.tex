@@ -1,10 +1,15 @@
 % ---------------------------------------------------------------------------
 % Standalone version of the "fit" figure. Compile from this folder:
 %
-%     pdflatex xrd_fit.tex
+%     pdflatex xrd_fit.tex                            PDF
+%     latex xrd_fit.tex
+%     dvisvgm --no-fonts --exact-bbox xrd_fit.dvi     SVG
 %
 % The tables in pgf/ are written by src/export_pgf.py.
 % ---------------------------------------------------------------------------
+% With latex (DVI output) PGF draws for dvisvgm
+\RequirePackage{ifpdf}
+\ifpdf\else\def\pgfsysdriver{pgfsys-dvisvgm.def}\fi
 \documentclass[tikz,border=6pt]{standalone}
 
 \usepackage{pgfplots}

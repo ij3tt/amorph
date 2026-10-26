@@ -1,9 +1,10 @@
 """
 What the screens «Результаты» and «Сравнение» show of the results of a
 run (amorph_results.Results, from a run folder or an archive): the
-diagnostic cards, and one row of the comparison table with its export to
-CSV and Markdown. The numbers are those of results.diagnosis; nothing here
-needs Qt.
+diagnostic cards; one row of the comparison table with its checks and its
+export to CSV and Markdown; and the joint report of the chosen runs
+(amorph_seeds.pool). The numbers are those of results.diagnosis and
+results.sampler; nothing here needs Qt.
 """
 
 import io
@@ -12,6 +13,7 @@ import os
 import pandas as pd
 
 import amorph_results
+import amorph_seeds
 
 from amorph_gui import config
 from amorph_gui import strings as S
@@ -28,6 +30,15 @@ WEIGHT_WARNING = 0.05
 # or rough (amber)
 ESS_BAD = 30
 ESS_LOW = 100
+
+# A run whose log(Z) is below the best of the runs of the same data and
+# settings by more than this has not converged: between seeds that did,
+# log(Z) differs by 2-3 nats (README, "Recommended settings")
+LOG_Z_GAP = 5.0
+
+# The seeds agree when the spread of their medians is at most this part of
+# the width of the 50% interval of the pooled fraction
+SPREAD_AGREES = 0.25
 
 
 def run_config(results):
@@ -125,9 +136,10 @@ def comparison_summary(rows):
     What the comparison table shows, in a few sentences, per data file: how
     far apart the medians of the fraction of runs with the same settings
     are (the run-to-run error of the sampler), and how far apart those of
-    different settings; and which is the larger.
+    different settings; and which is the larger. Rows that are not chosen
+    (a run that did not converge, or one the user unticked) are left out.
     """
-    rows = [r for r in rows if r["q50"] is not None]
+    rows = [r for r in rows if r["q50"] is not None and r.get("chosen", True)]
     files = sorted({str(r["data_file"]) for r in rows})
     lines = []
     for data_file in files:
@@ -206,7 +218,134 @@ def comparison_row(results, archive):
     row["below_0.2"] = None if d is None \
         else float(d["weight_fraction_below_0.2"])
     row["at_cap"] = None if d is None else float(d["weight_narrow_at_cap"])
+    sampler = results.sampler or {}
+    row["options"] = c.get("dnest4_options_file")
+    row["saves"] = num_saves(results)
+    row["planned"] = planned_saves(results)
+    row["log_z"] = float(sampler["log_z"]) if "log_z" in sampler else None
+    row["ess"] = float(d["effective_sample_size"]) if d is not None \
+        else (float(sampler["effective_sample_size"])
+              if "effective_sample_size" in sampler else None)
+    # Set by mark_log_z, once the other rows are known
+    row["dlog_z"] = None
+    # Whether the run goes into the joint report, and whether the user
+    # ticked or unticked it (otherwise mark_log_z chooses)
+    row["chosen"] = True
+    row["chosen_by_user"] = False
+    row["results"] = results
     return row
+
+
+def group_of(row):
+    """
+    The runs whose log(Z) can be compared: the same data file and the same
+    settings of the model (not of the sampler).
+    """
+    return (str(row["data_file"]), row["settings"])
+
+
+def mark_log_z(rows):
+    """
+    Give each row its log(Z) less the best of its group (dlog_z), and
+    choose for the joint report the rows the user has not ticked or
+    unticked: all but those that failed a red check.
+    """
+    best = {}
+    for r in rows:
+        if r["log_z"] is not None:
+            key = group_of(r)
+            best[key] = max(best.get(key, r["log_z"]), r["log_z"])
+    for r in rows:
+        r["dlog_z"] = None if r["log_z"] is None \
+            else r["log_z"] - best[group_of(r)]
+        if not r["chosen_by_user"]:
+            r["chosen"] = check_level(r) != RED
+
+
+def row_checks(row):
+    """
+    The checks of a run of the comparison: (level, text) for each that
+    fails. Red: log(Z) below the best of its group by LOG_Z_GAP or more
+    (the run did not converge), or over 5% of the weight at a fraction
+    below 0.2. Amber: stopped before its planned saves, a small effective
+    sample size, or over 5% of the weight at the cap of narrow peaks.
+    """
+    checks = []
+    if row.get("dlog_z") is not None and row["dlog_z"] <= -LOG_Z_GAP:
+        checks.append((RED, S.CHECK_LOG_Z.format(-row["dlog_z"])))
+    if row.get("below_0.2") is not None and row["below_0.2"] > WEIGHT_WARNING:
+        checks.append((RED, S.CHECK_LOW))
+    saves, planned = row.get("saves"), row.get("planned")
+    if saves is not None and planned and saves < planned:
+        checks.append((AMBER, S.CHECK_STOPPED.format(saves, planned)))
+    if row.get("ess") is not None and row["ess"] < ESS_LOW:
+        checks.append((AMBER, S.CHECK_ESS.format(row["ess"])))
+    if row.get("at_cap") is not None and row["at_cap"] > WEIGHT_WARNING:
+        checks.append((AMBER, S.CHECK_CAP))
+    return checks
+
+
+def check_level(row):
+    levels = [level for level, _ in row_checks(row)]
+    return RED if RED in levels else AMBER if AMBER in levels else OK
+
+
+def check_text(row):
+    return "; ".join(text for _, text in row_checks(row)) or S.CHECK_OK
+
+
+def seeds_word(n):
+    """
+    "сид", "сида" or "сидов" after the number n.
+    """
+    if n % 10 == 1 and n % 100 != 11:
+        return S.SEED_FORMS[0]
+    if n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14):
+        return S.SEED_FORMS[1]
+    return S.SEED_FORMS[2]
+
+
+def joint_report(rows):
+    """
+    The chosen rows together (amorph_seeds.pool). Returns the pooled
+    results (None if they cannot be pooled), the notes on them as
+    (level, text), and the line for a paper.
+    """
+    chosen = [r for r in rows if r["chosen"] and r.get("results") is not None
+              and r.get("q50") is not None]
+    if not chosen:
+        return None, [("info", S.JOINT_NONE)], ""
+    if len({str(r["data_file"]) for r in chosen}) > 1:
+        return None, [(RED, S.JOINT_DATA)], ""
+    try:
+        pooled = amorph_seeds.pool([r["results"] for r in chosen])
+    except ValueError as e:
+        return None, [(RED, str(e))], ""
+
+    notes = []
+    q = pooled["quantiles"]
+    n = len(chosen)
+    if len({r["settings"] for r in chosen}) > 1:
+        notes.append((AMBER, S.JOINT_SETTINGS))
+    if n == 1:
+        notes.append((AMBER, S.JOINT_ONE))
+    else:
+        width = q[3] - q[1]
+        agree = pooled["spread"] <= SPREAD_AGREES * width
+        notes.append((OK if agree else AMBER, (
+            S.JOINT_AGREE if agree else S.JOINT_DISAGREE).format(
+                pooled["spread"], width)))
+    gaps = [-r["dlog_z"] for r in chosen if r.get("dlog_z") is not None
+            and r["dlog_z"] <= -LOG_Z_GAP]
+    if gaps:
+        notes.append((RED, S.JOINT_BAD_LOG_Z.format(max(gaps))))
+
+    count = S.PAPER_ONE_SEED if n == 1 else S.PAPER_SEEDS.format(
+        n, seeds_word(n), pooled["spread"])
+    stem = os.path.splitext(str(chosen[0]["data_file"]))[0]
+    paper = S.PAPER_LINE.format(data=stem, q50=q[2], q25=q[1], q75=q[3],
+                                count=count)
+    return pooled, notes, paper
 
 
 def archive_text(row):
@@ -233,6 +372,35 @@ def weight_text(value):
 
 def seed_text(row):
     return S.NO_SEED if row["seed"] is None else str(row["seed"])
+
+
+def sampler_text(row):
+    """
+    The options file of the sampler and the saves: "OPTIONS · 4479 из
+    10000".
+    """
+    saves = row.get("saves")
+    planned = row.get("planned")
+    if saves is None:
+        count = S.UNKNOWN
+    elif planned:
+        count = S.SAVES_CELL.format(saves, planned)
+    else:
+        count = str(saves)
+    return S.SAMPLER_CELL.format(options=row.get("options") or S.UNKNOWN,
+                                 saves=count)
+
+
+def ess_text(row):
+    return "—" if row.get("ess") is None else "{0:.0f}".format(row["ess"])
+
+
+def dlog_z_text(row):
+    value = row.get("dlog_z")
+    if value is None:
+        return "—"
+    return "0.0" if value == 0.0 else "{0:.1f}".format(value).replace(
+        "-", "−")
 
 
 def rows_csv(rows):
@@ -264,7 +432,11 @@ def rows_csv(rows):
             "fraction_q50": row["q50"], "fraction_q75": row["q75"],
             "fraction_q95": row["q95"],
             "weight_fraction_below_0.2": row["below_0.2"],
-            "weight_narrow_at_cap": row["at_cap"]})
+            "weight_narrow_at_cap": row["at_cap"],
+            "saves": row.get("saves"), "planned_saves": row.get("planned"),
+            "effective_sample_size": row.get("ess"),
+            "log_z": row.get("log_z"), "dlog_z": row.get("dlog_z"),
+            "check": check_text(row), "chosen": row.get("chosen", True)})
     buffer = io.StringIO()
     pd.DataFrame(table).to_csv(buffer, index=False)
     return buffer.getvalue()
@@ -278,12 +450,15 @@ def rows_markdown(rows):
         return str(text).replace("|", "\\|")
 
     header = [S.COLUMN_ARCHIVE, S.COLUMN_DATA, S.COLUMN_SETTINGS,
-              S.COLUMN_SEED, S.COLUMN_FRACTION, S.COLUMN_LOW, S.COLUMN_CAP]
+              S.COLUMN_SEED, S.COLUMN_SAMPLER, S.COLUMN_ESS, S.COLUMN_LOG_Z,
+              S.COLUMN_FRACTION, S.COLUMN_LOW, S.COLUMN_CAP, S.COLUMN_CHECK]
     lines = ["| " + " | ".join(header) + " |",
              "|" + " --- |" * len(header)]
     for row in rows:
         lines.append("| " + " | ".join(cell(v) for v in (
             archive_text(row), row["data_file"],
-            row["settings"], seed_text(row), fraction_text(row),
-            weight_text(row["below_0.2"]), weight_text(row["at_cap"]))) + " |")
+            row["settings"], seed_text(row), sampler_text(row),
+            ess_text(row), dlog_z_text(row), fraction_text(row),
+            weight_text(row["below_0.2"]), weight_text(row["at_cap"]),
+            check_text(row))) + " |")
     return "\n".join(lines) + "\n"

@@ -30,6 +30,10 @@ if not sampler or not os.path.isfile(sampler):
 datas = [(os.path.join(SRC, name), ".")
          for name in ("config.yaml", "OPTIONS", "OPTIONS_AGGRESSIVE",
                       "easy_data.txt")]
+# The .tex files of the figures (amorph_tex.template_dir)
+datas += [(os.path.join(ROOT, "doc", "figures", name), "figures")
+          for name in ("xrd_fit.tex", "xrd_fit_body.tex", "xrd_seeds.tex",
+                       "xrd_seeds_body.tex")]
 # The licences of the bundled packages are in their metadata
 for package in ("PySide6_Essentials", "shiboken6", "pyqtgraph", "numpy",
                 "matplotlib", "pandas", "PyYAML"):
@@ -44,7 +48,8 @@ a = Analysis(
     binaries=[(sampler, ".")],
     datas=datas,
     hiddenimports=collect_submodules("amorph_gui")
-    + ["amorph_stats", "amorph_results", "amorph_archive", "dnest_functions"],
+    + ["amorph_stats", "amorph_results", "amorph_archive", "dnest_functions",
+       "amorph_seeds", "amorph_tex", "export_pgf"],
     excludes=["tkinter", "IPython", "PyQt5", "PyQt6", "PySide2", "pytest"],
 )
 pyz = PYZ(a.pure)

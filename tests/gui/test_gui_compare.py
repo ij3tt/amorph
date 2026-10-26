@@ -3,20 +3,24 @@ The comparison table of «Сравнение»: one row per archive, the interva
 drawn by its delegate, and the export as CSV and Markdown.
 """
 
+import glob
 import io
 import os
 import shutil
 
 import pandas as pd
+import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 
 import amorph_archive
 import amorph_results
+import amorph_seeds
 
-from amorph_gui import digest
+from amorph_gui import digest, theme
 from amorph_gui import strings as S
-from amorph_gui.compare_screen import INTERVAL_COLUMN, QUANTILES_ROLE
+from amorph_gui.compare_screen import (INTERVAL_COLUMN, LOG_Z_COLUMN,
+                                       QUANTILES_ROLE)
 from amorph_gui.main_window import RESULTS
 from amorph_gui.widgets import ACCENT
 
@@ -45,11 +49,14 @@ def test_comparison_table(window, qtbot, archives):
             os.path.basename(os.path.dirname(path)), os.path.basename(path))
         assert cell(model, row, 1) == "demo_data.txt"
         assert cell(model, row, 3) == str(5 + row)
-        assert cell(model, row, 4) == "{0:.3f} [{1:.3f}, {2:.3f}]".format(
+        assert cell(model, row, 4).startswith("OPTIONS · ")
+        assert cell(model, row, 5) == "{0:.0f}".format(
+            d["effective_sample_size"])
+        assert cell(model, row, 7) == "{0:.3f} [{1:.3f}, {2:.3f}]".format(
             f["q50"], f["q25"], f["q75"])
-        assert cell(model, row, 6) == "{0:.1%}".format(
+        assert cell(model, row, 9) == "{0:.1%}".format(
             d["weight_fraction_below_0.2"])
-        assert cell(model, row, 7) == "{0:.1%}".format(
+        assert cell(model, row, 10) == "{0:.1%}".format(
             d["weight_narrow_at_cap"])
         assert model.data(model.index(row, INTERVAL_COLUMN),
                           QUANTILES_ROLE) == [f[q] for q in (
@@ -69,8 +76,12 @@ def test_comparison_table(window, qtbot, archives):
 def test_the_delegate_draws_the_interval(window, qtbot, archives):
     screen = loaded(window, qtbot, [archives["seed5"]])
     window.show_screen(window.screens.index(screen))
+    # The table is wider than its view: bring the interval into sight
+    index = screen.model.index(0, INTERVAL_COLUMN)
+    screen.view.scrollTo(index)
     qtbot.wait(100)
-    rect = screen.view.visualRect(screen.model.index(0, INTERVAL_COLUMN))
+    rect = screen.view.visualRect(index)
+    assert screen.view.viewport().rect().contains(rect.center())
     image = screen.view.viewport().grab().toImage()
     ratio = image.devicePixelRatio()
     colors = {image.pixelColor(int(x * ratio), int(rect.center().y() * ratio))
@@ -187,6 +198,102 @@ def test_comparison_summary():
         row("b.txt", "A", 0.50), row("b.txt", "A", 0.52)])
     assert lines[0] == S.SUMMARY_DATA.format("a.txt")
     assert lines[2] == S.SUMMARY_DATA.format("b.txt")
+
+
+def test_a_run_with_a_low_log_z_is_left_out(window, qtbot, archives):
+    # Two runs of the same data and settings, one with a log(Z) 10 nats
+    # lower: it did not converge
+    results = amorph_archive.read(archives["seed5"])
+    good = digest.comparison_row(results, os.path.join("a", "good.amorph"))
+    bad = digest.comparison_row(results, os.path.join("b", "bad.amorph"))
+    bad["log_z"] = good["log_z"] - 10.0
+    model = window.compare_screen.model
+    model.add(good)
+    model.add(bad)
+    assert good["dlog_z"] == 0.0
+    assert bad["dlog_z"] == pytest.approx(-10.0)
+    assert S.CHECK_LOG_Z.format(10.0) in digest.check_text(bad)
+    assert digest.check_level(bad) == digest.RED
+    assert not bad["chosen"]
+    assert good["chosen"] == (digest.check_level(good) != digest.RED)
+    assert cell(model, 1, LOG_Z_COLUMN) == "−10.0"
+    assert model.data(model.index(1, LOG_Z_COLUMN), Qt.ForegroundRole) == \
+        QColor(theme.RED)
+    assert model.data(model.index(1, 0), Qt.CheckStateRole) == Qt.Unchecked
+
+    # Ticked by the user, it stays ticked, and the report warns
+    model.setData(model.index(1, 0), Qt.Checked, Qt.CheckStateRole)
+    assert bad["chosen"] and bad["chosen_by_user"]
+    model.add(digest.comparison_row(results, os.path.join("c", "c.amorph")))
+    assert bad["chosen"]
+    model.choose(0, True)
+    _, notes, _ = digest.joint_report(model.rows)
+    assert (digest.RED, S.JOINT_BAD_LOG_Z.format(10.0)) in notes
+    # The summary leaves out the runs that are not ticked
+    model.choose(1, False)
+    assert digest.comparison_summary(model.rows) == \
+        digest.comparison_summary([r for r in model.rows if r is not bad])
+
+
+def test_the_joint_report_and_its_figure(window, qtbot, archives, tmp_path):
+    paths = [archives["seed5"], archives["seed6"]]
+    screen = loaded(window, qtbot, paths)
+    for i in range(2):
+        screen.model.choose(i, True)
+    screen.refresh_joint()
+    expected = amorph_seeds.pool([amorph_archive.read(p) for p in paths])
+    pooled = screen.pooled
+    assert pooled["seeds"] == [5, 6]
+    assert pooled["quantiles"] == pytest.approx(expected["quantiles"])
+    assert screen.joint_value.text() == "{0:.3f}".format(
+        expected["quantiles"][2])
+    # Seeds 5 and 6 have different ranges of nu: the report says so
+    _, notes, paper = digest.joint_report(screen.model.rows)
+    assert (digest.AMBER, S.JOINT_SETTINGS) in notes
+    assert paper.startswith("demo_data: ") and "2 сида" in paper
+    assert screen.paper.text() == paper
+    assert screen.figure_title() == "demo_data.txt"
+
+    # The figure in both styles, and what the buttons write
+    for style in ("fit", "seeds"):
+        screen.set_style(style)
+        assert screen.figure.axes
+    data = str(tmp_path / "pgf")
+    screen.export_data(data)
+    tex = str(tmp_path / "tex")
+    screen.export_tex(tex)
+    png = str(tmp_path / "figure.png")
+    screen.export_file("png", png)
+    qtbot.waitUntil(lambda: screen.tasks.active == 0, timeout=30000)
+    for name in ("xrd_meta.tex", "xrd_mean.dat", "seeds_meta.tex",
+                 "seeds_curves.dat"):
+        assert os.path.isfile(os.path.join(data, name))
+    for name in ("xrd_seeds.tex", "xrd_seeds_body.tex", "build.sh",
+                 "build.bat", os.path.join("pgf", "seeds_meta.tex")):
+        assert os.path.isfile(os.path.join(tex, name))
+    with open(png, "rb") as f:
+        assert f.read(8) == b"\x89PNG\r\n\x1a\n"
+
+    # Nothing ticked: no report and nothing to export
+    for i in range(2):
+        screen.model.choose(i, False)
+    screen.refresh_joint()
+    assert screen.pooled is None
+    assert screen.joint_value.text() == "—"
+    assert not screen.export_buttons["data"].isEnabled()
+
+
+def test_a_folder_of_archives(window, qtbot, archives):
+    folder = os.path.dirname(archives["seed5"])
+    screen = window.compare_screen
+    screen.add_folder(folder)
+    qtbot.waitUntil(lambda: screen.pending == 0, timeout=30000)
+    assert screen.model.rowCount() == len(glob.glob(
+        os.path.join(folder, "**", "*.amorph"), recursive=True))
+    screen.clear()
+    screen.add_folder(os.path.join(folder, "run"))
+    assert not screen.errors.isHidden()
+    assert screen.model.rowCount() == 0
 
 
 def test_the_screen_shows_the_summary(window, qtbot, archives):

@@ -66,6 +66,7 @@ LEVELS = {
     "warning": (AMBER_TEXT, AMBER_SOFT, AMBER_LINE, AMBER),
     "amber": (AMBER_TEXT, AMBER_SOFT, AMBER_LINE, AMBER),
     "ok": (INK, SURFACE, SURFACE, GREEN),
+    "good": (GREEN, GREEN_SOFT, GREEN_LINE, GREEN),
     "info": (INFO, INFO_SOFT, INFO_LINE, INFO),
 }
 
@@ -192,6 +193,23 @@ QPushButton#danger {{ color: {AMBER_TEXT}; border: 1px solid #C2410C;
     font-weight: 600; }}
 QPushButton#danger:disabled {{ color: #9AA3AF; border-color: {LINE}; }}
 QPushButton#small {{ padding: 4px 10px; font-size: 9pt; }}
+/* A group of buttons of which one is chosen, and the chips that show or
+   hide the layers of a plot */
+QPushButton#segment {{ border-radius: 0; padding: 6px 12px; font-size: 9pt; }}
+QPushButton#segment:checked {{ background: {ACCENT}; color: white;
+    border-color: {ACCENT}; font-weight: 600; }}
+QPushButton#chip {{ border-radius: 13px; padding: 4px 12px; font-size: 9pt; }}
+QPushButton#chip:!checked {{ color: {MUTED}; background: {GROUND};
+    border-style: dashed; text-decoration: line-through; }}
+QLabel#okBadge {{ color: {GREEN}; background: {GREEN_SOFT};
+    border: 1px solid {GREEN_LINE}; border-radius: 10px; padding: 1px 10px;
+    font-weight: 600; font-size: 9pt; }}
+QLabel#waitBadge {{ color: {MUTED}; background: {GROUND};
+    border: 1px solid {LINE}; border-radius: 10px; padding: 1px 10px;
+    font-size: 9pt; }}
+QLabel#liveFraction {{ font-family: {MONO_CSS}; font-size: 22pt;
+    font-weight: 500; }}
+QLabel#stat {{ font-family: {MONO_CSS}; font-size: 11pt; }}
 
 /* Tabs */
 QTabWidget::pane {{ border: none; border-top: 1px solid {LINE}; top: -1px; }}
@@ -252,6 +270,8 @@ def style_plot(plot_widget, x_label=None, y_label=None):
         axis.setTextPen(pg.mkPen(MUTED))
         axis.setTickFont(tick_font)
         axis.setStyle(tickLength=-4)
+        # Fractions as 0.2 to 0.8, not as 200 to 800 "(x0.001)"
+        axis.enableAutoSIPrefix(False)
     if x_label:
         item.setLabel("bottom", x_label, color=MUTED)
     if y_label:

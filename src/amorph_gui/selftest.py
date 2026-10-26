@@ -5,11 +5,12 @@ The self-test of the GUI, without a screen:
 
 opens the bundled easy_data.txt on «Данные и модель», runs two seeds with
 tiny DNest4 options (those of scripts/smoke_test.sh) through the run
-machinery of the GUI, post-processes them and writes their archives; then
-runs a third seed without a limit on the saves and stops it, compares the
-three archives and opens one again. It saves a screenshot of every screen
-to DIR, and the runs go to DIR/runs. The exit status is 0 if all of it
-worked.
+machinery of the GUI, post-processes them and writes their archives,
+checking the live estimate against the post-processing; then runs a third
+seed without a limit on the saves and stops it, compares the three
+archives, exports their joint figure for LaTeX to DIR/export and opens an
+archive again. It saves a screenshot of every screen to DIR, and the runs
+go to DIR/runs. The exit status is 0 if all of it worked.
 """
 
 import os
@@ -169,10 +170,24 @@ class SelfTest(object):
             f = run.results.diagnosis["fraction"]
             print("self-test: {0}: fraction {1:.3f} [{2:.3f}, {3:.3f}]"
                   .format(run.name, f["q50"], f["q25"], f["q75"]))
+            # The last estimate of the run, from all its saves, is what the
+            # post-processing found
+            e = run.estimate
+            self.check(e is not None and e["quantiles"] is not None,
+                       "no estimate of the fraction for " + run.name)
+            self.check(e["saves"] == 100, "the estimate of {0} has {1} "
+                       "saves, not 100".format(run.name, e["saves"]))
+            self.check(abs(e["quantiles"][2] - f["q50"]) < 1E-9,
+                       "{0}: the estimate {1} is not the median {2} of the "
+                       "post-processing".format(run.name, e["quantiles"][2],
+                                                f["q50"]))
         self.check(len(runs) == 2, "{0} runs, not 2".format(len(runs)))
         self.check(runs[0].seed == 1 and runs[1].seed == 2,
                    "the seeds are not 1 and 2")
         self.shot("03-runs", RUNS)
+        w.runs_screen.set_view("last")
+        self.shot("03-runs-last-particle", RUNS)
+        w.runs_screen.set_view("mean")
         for i, name in enumerate(["summary", "model", "distributions",
                                   "sampler", "report"]):
             self.shot("{0:02d}-results-{1}".format(4 + i, name), RESULTS, i)
@@ -209,7 +224,27 @@ class SelfTest(object):
         self.check(compare.model.rowCount() == 3,
                    "{0} rows in the comparison, not 3".format(
                        compare.model.rowCount()))
+        # All three in the joint report, whatever their checks say of such
+        # short runs
+        for i in range(compare.model.rowCount()):
+            compare.model.choose(i, True)
+        compare.refresh_joint()
+        self.check(compare.pooled is not None, "no joint report")
         self.shot("11-compare", COMPARE)
+        compare.set_style("seeds")
+        self.shot("11-compare-seeds-figure", COMPARE)
+
+        # The tables of PGFPlots and the folder of a figure, with the .tex
+        # files that the package carries
+        export = os.path.join(self.out_dir, "export")
+        compare.export_data(os.path.join(export, "pgf"))
+        compare.export_tex(os.path.join(export, "figure"))
+        for path in (os.path.join(export, "pgf", "xrd_meta.tex"),
+                     os.path.join(export, "pgf", "seeds_meta.tex"),
+                     os.path.join(export, "figure", "xrd_seeds_body.tex"),
+                     os.path.join(export, "figure", "pgf", "xrd_mean.dat")):
+            wait_until(lambda path=path: os.path.isfile(path),
+                       "the export of " + path)
 
         # «Открыть архив…»
         archive = runs[0].archive

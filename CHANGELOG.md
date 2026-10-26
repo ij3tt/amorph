@@ -7,6 +7,51 @@ the GitHub Release are the section of that version below, unless the tag is
 annotated with a message of more than one line, which is used instead (see
 "Releases" in the README). The date of a release is that of its tag.
 
+## 1.1.0
+
+The graphical interface shows the estimate of a run while the sampler
+works, reports several seeds of one sample together and draws their
+figures for LaTeX. The sampler and its results are those of 1.0.2.
+Pre-releases (v1.1.0-rc.1, ...) come before the release, on GitHub only.
+
+### Added
+
+- «Прогоны» shows the estimate of the run while the sampler works: the
+  amorphous fraction with its 50% and 90% intervals from all the saves so
+  far with their posterior weights, how it moved over the saves, the
+  effective sample size, log(Z) and whether the estimate has settled; and
+  the background, the amorphous halo, the crystalline peaks and the model,
+  each a layer that can be hidden, for the posterior mean so far, the best
+  sample or the last saved one, with their levels among those of the
+  sampler. It used to show only the last saved sample, which once the
+  levels are built is usually from a low level and fits the data worse
+  than the posterior.
+- «Сравнение»: the options file and the saves of each run, its effective
+  sample size, log(Z) against the best run of the same data and settings,
+  and its checks; a run 5 nats or more below the best did not converge
+  and is unticked. The ticked runs make a joint report (the fraction of
+  all the seeds together, the spread of their medians, warnings, a line
+  for a paper) and a figure, in the style of `doc/figures/xrd_fit.tex` or
+  with two panels (`doc/figures/xrd_seeds.tex`), exported as the tables of
+  PGFPlots, a folder for LaTeX, PDF and SVG built with the LaTeX
+  installed, or PNG. «Добавить папку…» adds every archive of a folder.
+- «Данные для PGFPlots…» on «Результаты» writes the tables of
+  `export_pgf.py` for the run.
+- `doc/figures/xrd_fit.tex` also builds SVG: `latex` and `dvisvgm`.
+- `src/amorph_seeds.py` pools the seeds of a sample;
+  `export_pgf.write_tables` writes the tables from curves in memory;
+  `src/amorph_tex.py` writes the folders of the figures and builds them.
+
+### Fixed
+
+- The axes of the plots of the GUI no longer scale numbers with an SI
+  prefix: the histogram of the fraction read 200-800 "(x0.001)".
+
+### Build and CI
+
+- A tag v<version>-rc.<n> (or -beta.<n>, -alpha.<n>) makes a GitHub
+  pre-release of the version, with the notes of the version.
+
 ## 1.0.2
 
 The programs are those of 1.0.1, and the sampler and its results those of
