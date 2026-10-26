@@ -656,7 +656,9 @@ version 1.2.0:
 same tag is pushed there (`git push gitverse.ru v1.2.0`): it waits for the
 GitHub Release, downloads its seven files, verifies their SHA-256 checksums
 and publishes them with the same notes. The GitVerse repository needs a
-`GITVERSE_API_KEY` secret with Repositories → Write permission. GitHub took
+GitVerse API key with Repositories → Write permission in the secret
+`RELEASE_API_KEY` (GitVerse does not take secret names that start with
+`GITVERSE_`); without it the mirror stops at once. GitHub took
 about 16 minutes to build the release of v1.0.0, and the mirror waits up to
 20 minutes of its 30 (`scripts/ci/download_release.sh`). If the GitHub
 Release takes longer, the mirror fails and says so: once the GitHub Release
