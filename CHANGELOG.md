@@ -7,6 +7,23 @@ the GitHub Release are the section of that version below, unless the tag is
 annotated with a message of more than one line, which is used instead (see
 "Releases" in the README). The date of a release is that of its tag.
 
+## Unreleased
+
+### Build and CI
+
+- The GitVerse mirror of a release waits up to 20 minutes for the GitHub
+  Release to be complete, checking every 20 seconds, then downloads each
+  file once; if the release is not complete by then, it says so and how to
+  run it again. The README explains how to publish v1.0.0, tagged before
+  the mirror existed, on GitVerse by hand.
+
+### Documentation
+
+- README: the runs on 15–70° with four seeds of 10000 saves (the seeds
+  disagree by 0.05–0.1, against 0.01 on 20–50°, so the narrower range is
+  recommended), and the check that the faster sampler of #14 gives the same
+  results as before.
+
 ## 1.0.0
 
 The first release, with executables and a graphical interface for Windows,
