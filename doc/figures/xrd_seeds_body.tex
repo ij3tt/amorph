@@ -1,0 +1,106 @@
+% ---------------------------------------------------------------------------
+% The "seeds" figure: several runs (seeds) of one sample together.
+%
+%   (a) the scan with the posterior means of the background, the amorphous
+%       halo, the crystalline peaks and the model, each seed counting
+%       equally, the 90% band of the model, and the halo of each seed;
+%   (b) the posterior distribution of the amorphous fraction of each seed
+%       and of all of them.
+%
+% This file is a fragment: it expects pgfplots with the fillbetween and
+% groupplots libraries, and the tables that the AMORPH GUI writes
+% («Сравнение», «Данные для PGFPlots…») in \xrddatadir (by default "pgf/",
+% relative to the directory holding this file).
+%
+%     \usepackage{pgfplots}
+%     \usepgfplotslibrary{fillbetween,groupplots}
+%     \input{figures/xrd_seeds_body.tex}
+%
+% The companion file xrd_seeds.tex compiles this into a standalone PDF.
+% ---------------------------------------------------------------------------
+
+% Colours of the GUI
+\definecolor{seedsink}{HTML}{1B2430}
+\definecolor{seedsdata}{HTML}{9AA3AF}
+\definecolor{seedshalo}{HTML}{1D4ED8}
+\definecolor{seedshalofill}{HTML}{BFD3FA}
+\definecolor{seedsxtalfill}{HTML}{F4A06C}
+\definecolor{seedsbg}{HTML}{6B7280}
+\definecolor{seedsband}{HTML}{DBEAFE}
+% One colour per seed, in turn
+\definecolor{seed1}{HTML}{0F766E}
+\definecolor{seed2}{HTML}{B45309}
+\definecolor{seed3}{HTML}{6D28D9}
+\definecolor{seed4}{HTML}{BE185D}
+\definecolor{seed5}{HTML}{15803D}
+\definecolor{seed6}{HTML}{0369A1}
+
+\pgfplotsset{
+    seeds axis/.style={
+        axis line style={seedsink!60}, tick style={seedsink!60},
+        tick label style={font=\small}, label style={font=\small},
+        title style={font=\small},
+        grid=major, major grid style={seedsink!12}},
+    seeds halo/.style={line width=0.7pt, densely dashed},
+    seeds density/.style={line width=0.9pt, const plot mark mid},
+}
+
+\ifx\xrddatadir\undefined
+  \def\xrddatadir{pgf/}
+\fi
+\input{\xrddatadir seeds_meta.tex}
+
+\begin{tikzpicture}
+\begin{groupplot}[group style={group size=2 by 1, horizontal sep=1.6cm},
+                  height=7cm, seeds axis]
+
+% --- (a) the scan and its parts ---------------------------------------------
+\nextgroupplot[width=12cm,
+    xmin=\seedsxmin, xmax=\seedsxmax, ymin=0, ymax=\seedsymax,
+    xlabel={$2\theta$, $^\circ$}, ylabel={Intensity, counts},
+    title={\textbf{(a)} \seedstitle},
+    legend style={at={(0.99,0.99)}, anchor=north east, font=\footnotesize,
+                  draw=none, fill=white, fill opacity=0.8, text opacity=1},
+    legend cell align=left]
+\addplot[name path=lo, draw=none, forget plot]
+    table[x=x, y=lo] {\xrddatadir seeds_curves.dat};
+\addplot[name path=hi, draw=none, forget plot]
+    table[x=x, y=hi] {\xrddatadir seeds_curves.dat};
+\addplot[seedsband] fill between[of=lo and hi];
+\addlegendentry{model, 90\%}
+\addplot[name path=bg, seedsbg, densely dashed, line width=0.8pt]
+    table[x=x, y=bg] {\xrddatadir seeds_curves.dat};
+\addlegendentry{background}
+\addplot[name path=halo, seedshalo, line width=1.1pt]
+    table[x=x, y=halo] {\xrddatadir seeds_curves.dat};
+\addlegendentry{amorphous halo}
+\addplot[seedshalofill, opacity=0.7, forget plot] fill between[of=bg and halo];
+\addplot[name path=model, seedsink, line width=0.9pt]
+    table[x=x, y=model] {\xrddatadir seeds_curves.dat};
+\addlegendentry{model (mean)}
+\addplot[seedsxtalfill, opacity=0.6] fill between[of=halo and model];
+\addlegendentry{crystalline peaks}
+\input{\xrddatadir seeds_halos.tex}
+\addplot[only marks, mark=*, mark size=0.55pt, seedsdata, forget plot]
+    table[x=x, y=intensity] {\xrddatadir xrd_data.dat};
+\node[anchor=north west, font=\small, align=left, fill=white,
+      fill opacity=0.8, text opacity=1] at (rel axis cs:0.02,0.98)
+    {amorphous fraction \seedsmedian\\
+     50\%: [\seedsqlo, \seedsqhi]\\
+     90\%: [\seedsqqlo, \seedsqqhi]\\
+     \seedsspread};
+
+% --- (b) the fraction --------------------------------------------------------
+\nextgroupplot[width=6.5cm, xmin=\seedsfmin, xmax=\seedsfmax, ymin=0,
+    xlabel={amorphous fraction}, ylabel={posterior density},
+    title={\textbf{(b)} \seedscount},
+    legend style={at={(0.02,0.98)}, anchor=north west, font=\footnotesize,
+                  draw=none, fill=none},
+    legend cell align=left, xticklabel style={/pgf/number format/fixed}]
+\addplot[fill=seedshalofill, draw=seedshalo, const plot mark mid,
+         line width=0.6pt]
+    table[x=f, y=pooled] {\xrddatadir seeds_fraction.dat} \closedcycle;
+\addlegendentry{pooled}
+\input{\xrddatadir seeds_densities.tex}
+\end{groupplot}
+\end{tikzpicture}

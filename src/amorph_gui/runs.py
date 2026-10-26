@@ -1,7 +1,8 @@
 """
 The runs of the sampler: one QProcess at a time, in the folder of the run.
 While it works, a worker thread counts its saves and levels and reads its
-last saved sample every second; when it ends, another worker
+last saved sample every second, and every few seconds updates the
+estimate of the run (live.LiveEstimate); when it ends, another worker
 post-processes it and writes the run archive, while the next seed runs.
 """
 
@@ -14,7 +15,7 @@ from PySide6.QtCore import QObject, QProcess, QTimer, Signal
 
 import amorph_stats
 
-from amorph_gui import runfiles
+from amorph_gui import live, runfiles
 from amorph_gui import strings as S
 from amorph_gui.tasks import Tasks
 
@@ -38,6 +39,9 @@ STATUS_TEXT = {WAITING: S.STATUS_WAITING, RUNNING: S.STATUS_RUNNING,
 
 # How often the progress of the sampler is read, in milliseconds
 POLL_INTERVAL = 1000
+
+# How often the estimate of a running sampler is computed, in seconds
+ESTIMATE_INTERVAL = 5.0
 
 
 class Run(object):
@@ -68,6 +72,10 @@ class Run(object):
         self.saved_levels = None
         self.reader = runfiles.SampleReader(os.path.join(folder,
                                                          "sample.txt"))
+        # The estimate of the sampler at work (live.LiveEstimate.estimate)
+        self.estimate = None
+        self.live = live.LiveEstimate(folder, x) if x is not None else None
+        self._estimated_at = None
         self._decoder = codecs.getincrementaldecoder("utf-8")("replace")
         self._polling = False
         self._poll_again = False
@@ -288,7 +296,9 @@ class RunQueue(QObject):
         run.ended = time.monotonic()
         self.process = None
         process.deleteLater()
-        self._poll(run)
+        # The estimate of all the saves, unless the post-processing of a
+        # stopped run is about to trim them
+        self._poll(run, final=not run.stopped)
         if run.stopped:
             self._postprocess(run)
         elif status == QProcess.NormalExit and code == 0:
@@ -312,18 +322,37 @@ class RunQueue(QObject):
         elif self.current is not None:
             self.changed.emit(self.current)
 
-    def _poll(self, run):
+    def _poll(self, run, final=False):
+        """
+        Read the progress of the sampler of run, and every
+        ESTIMATE_INTERVAL seconds (or now, if final) its estimate.
+        """
+        if final:
+            run._estimated_at = None
         if run._polling:
             run._poll_again = True
             return
         run._polling = True
-        folder, reader = run.folder, run.reader
+        folder, reader, estimator = run.folder, run.reader, run.live
+        now = time.monotonic()
+        due = estimator is not None and (
+            run._estimated_at is None
+            or now - run._estimated_at >= ESTIMATE_INTERVAL)
+        if due:
+            run._estimated_at = now
+
+        def job():
+            p = runfiles.progress(folder, reader)
+            p["estimate"] = estimator.update() if due else None
+            return p
 
         def done(p):
             run._polling = False
             run.saves, run.levels = p["saves"], p["levels"]
             if p["sample"] is not None:
                 run.sample = p["sample"]
+            if p["estimate"] is not None:
+                run.estimate = p["estimate"]
             if run.status == RUNNING:
                 self._save_levels(run, p["levels_text"])
             self.changed.emit(run)
@@ -334,7 +363,7 @@ class RunQueue(QObject):
         def failed(message):
             run._polling = False
 
-        self.tasks.run(lambda: runfiles.progress(folder, reader), done, failed)
+        self.tasks.run(job, done, failed)
 
     def _save_levels(self, run, text):
         if text is not None and (run.saved_levels is None

@@ -3,8 +3,8 @@ The screen «Результаты»: the results of one run, from its folder aft
 post-processing or from an archive. The tabs show the fraction with its
 intervals, the diagnostic cards, the decomposition of the scan and the
 distribution of the fraction; the figures of amorph_results.FIGURES; and
-the whole report. The header exports the figures, the archive and the
-posterior samples.
+the whole report. The header exports the figures, the archive, the
+posterior samples and the tables of PGFPlots (export_pgf.py).
 """
 
 import os
@@ -19,6 +19,8 @@ from PySide6.QtWidgets import (QFileDialog, QGridLayout, QHBoxLayout, QLabel,
 
 import amorph_archive
 import amorph_results
+import amorph_seeds
+import amorph_tex
 
 from amorph_gui import digest
 from amorph_gui import strings as S
@@ -78,7 +80,9 @@ class ResultsScreen(Screen):
             self.add_button(S.SAVE_POSTERIOR, self.save_posterior,
                             S.SAVE_POSTERIOR_TIP),
             self.add_button(S.SAVE_FIGURES, self.save_figures,
-                            S.SAVE_FIGURES_TIP)]
+                            S.SAVE_FIGURES_TIP),
+            self.add_button(S.EXPORT_DATA, self.save_pgf_data,
+                            S.EXPORT_DATA_ONE_TIP)]
         for button in self.export_buttons:
             button.setEnabled(False)
 
@@ -414,6 +418,28 @@ class ResultsScreen(Screen):
             return folder
 
         self._export(job, S.FIGURES_SAVED)
+
+    def save_pgf_data(self):
+        if self.results is None:
+            return
+        folder = QFileDialog.getExistingDirectory(self, S.CHOOSE_DATA_FOLDER)
+        if folder:
+            self.write_pgf_data(folder)
+
+    def write_pgf_data(self, folder):
+        """
+        The tables of PGFPlots of the run, as export_pgf.py writes them for
+        doc/figures/xrd_fit.tex, into folder.
+        """
+        results = self.results
+        title = results.info.get("data_file", "amorph")
+
+        def job():
+            amorph_tex.write_tables(amorph_seeds.pool([results]), folder,
+                                    title)
+            return folder
+
+        self._export(job)
 
     def _export(self, job, done_text=S.SAVED):
         self.tasks.run(job, lambda path: self.message.emit(

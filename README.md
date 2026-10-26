@@ -241,8 +241,21 @@ It has four screens, listed on the left:
   range: AMORPH has no setting for the range, so the program writes them
   there. The seeds (seed, seed + 1, ...) run one after another. The
   screen shows the number of saves and levels and the time, the output of
-  the sampler (also kept in the folder as `run.log`) and the model curve
-  of the last saved sample. «Остановить» stops the sampler, keeps its
+  the sampler (also kept in the folder as `run.log`), and the estimate of
+  the run so far, computed every few seconds from all its saves with their
+  posterior weights, as the post-processing computes them: the median of
+  the amorphous fraction with its 50% and 90% intervals, a plot of how
+  they moved over the saves, the effective sample size and log(Z), and
+  whether the estimate has settled (its median moved by less than 0.005
+  over the last 20% of the saves, at least 1000, since the levels were
+  built). The model plot shows the background, the amorphous halo, the
+  crystalline peaks and the model, each a layer that can be hidden, for
+  the posterior mean so far (with the 90% band of the model), the best
+  sample so far, or the last saved sample, with the level of each among
+  the levels of the sampler. The last saved sample alone says little:
+  once the levels are built, the sampler sends its particles down to low
+  levels on purpose, and in a long run about two saves in three fit worse
+  than 99% of the posterior. «Остановить» stops the sampler, keeps its
   complete saves, post-processes them and marks the run as incomplete;
   the seeds still waiting are cancelled.
 * «Результаты»: each run is post-processed as `showresults.py` does it,
@@ -254,14 +267,35 @@ It has four screens, listed on the left:
   its planned number of saves) and the effective sample size; «Модель»,
   «Распределения» and «Сэмплер», the figures of `showresults.py` (the
   last with log(Z), the information and the effective sample size); and
-  «Полный отчёт», the report. Each figure saves as PNG, and the archive
-  and the posterior samples (CSV) save too.
+  «Полный отчёт», the report. Each figure saves as PNG, and the archive,
+  the posterior samples (CSV) and the tables of PGFPlots that
+  `export_pgf.py` writes («Данные для PGFPlots…», see "Drawing the fit
+  figure with TikZ") save too.
 * «Сравнение»: a table of run archives, such as the seeds of a batch
-  (added when the batch ends) or the `run.amorph` files that the
-  experiment and validate workflows upload. Per archive: the data file,
-  the settings, the seed, the median of the fraction with its 50%
-  interval, also drawn as a bar on a scale common to all rows, and the
-  posterior weight below 0.2 and at the cap. It exports as CSV and
+  (added when the batch ends), all the archives of a folder, or the
+  `run.amorph` files that the experiment and validate workflows upload.
+  Per archive: the data file, the settings, the seed, the options file of
+  the sampler and its saves, the effective sample size, log(Z) less the
+  best log(Z) of the runs of the same data and settings, the median of the
+  fraction with its 50% interval, also drawn as a bar on a scale common
+  to all rows, the posterior weight below 0.2 and at the cap, and the
+  checks of the run. A log(Z) 5 nats or more below the best marks a run
+  that did not converge (between seeds that did it differs by 2-3 nats,
+  see "Recommended settings and calibration"); so does over 5% of the
+  weight below 0.2. Such runs are unticked; the others are ticked. The
+  ticked runs make the joint report: the fraction of all of them
+  together, each seed counting equally and its saves keeping their
+  posterior weights, its intervals, the spread of the medians of the
+  seeds against the width of the 50% interval, warnings for runs of other
+  settings or with a low log(Z), and a line for a paper. Its figure, in
+  the style of `doc/figures/xrd_fit.tex` or with two panels (the scan
+  with its parts and the halo of each seed, and the distribution of the
+  fraction of each seed and pooled, `doc/figures/xrd_seeds.tex`), is
+  previewed and exported: «Данные для PGFPlots…» writes the tables of
+  both figures, «TeX…» a folder with the figure, its tables and
+  `build.bat` / `build.sh`, «PDF…» and «SVG…» build it with the LaTeX
+  installed (TeX Live or MiKTeX: `pdflatex`, and `latex` with
+  `dvisvgm`), «PNG…» saves the preview. The table exports as CSV and
   Markdown.
 
 «Открыть архив…», on every screen, shows an archive on «Результаты».
@@ -735,6 +769,24 @@ python showresults.py                     # in src/, writes posterior_sample.txt
 python export_pgf.py --out ../doc/figures/pgf
 cd ../doc/figures && pdflatex xrd_fit.tex  # writes xrd_fit.pdf
 ```
+
+and, for an SVG file, through LaTeX too:
+
+```
+latex xrd_fit.tex                                # writes xrd_fit.dvi
+dvisvgm --no-fonts --exact-bbox xrd_fit.dvi      # writes xrd_fit.svg
+```
+
+In the GUI, «Данные для PGFPlots…» on «Результаты» writes the same tables
+for a run, and «Сравнение» writes them for the ticked seeds together,
+with those of `doc/figures/xrd_seeds.tex`, the figure of several seeds:
+(a) the scan with the background, the amorphous halo, the crystalline
+peaks, the model and its 90% band, and the halo of each seed; (b) the
+distribution of the fraction of each seed and pooled. Its tables are
+`seeds_curves.dat` (x, background, halo, model, crystalline peaks and
+the band), `seeds_halo.dat`, `seeds_fraction.dat`, the `\addplot` lists
+`seeds_halos.tex` and `seeds_densities.tex`, and the macros
+`seeds_meta.tex`; it needs `\usepgfplotslibrary{fillbetween,groupplots}`.
 
 or, all at once,
 

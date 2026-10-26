@@ -33,6 +33,8 @@ doc/references.bib
 doc/figures/*
 !doc/figures/xrd_fit.tex
 !doc/figures/xrd_fit_body.tex
+!doc/figures/xrd_seeds.tex
+!doc/figures/xrd_seeds_body.tex
 demo/
 .pytest_cache/
 src/pgf/
