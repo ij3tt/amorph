@@ -10,8 +10,8 @@ import os
 import sys
 import time
 
-from PySide6.QtCore import QPointF, QSize, Qt
-from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen
+from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QPainter
 from PySide6.QtWidgets import (QFileDialog, QHBoxLayout, QLabel,
                                QListWidget, QListWidgetItem, QMainWindow,
                                QMessageBox, QPushButton, QStackedWidget,
@@ -44,20 +44,7 @@ class Logo(QWidget):
 
     def paintEvent(self, event):
         p = QPainter(self)
-        p.setRenderHint(QPainter.Antialiasing)
-        pen = QPen(QColor(theme.INK), 1.8)
-        pen.setCapStyle(Qt.RoundCap)
-        pen.setJoinStyle(Qt.RoundJoin)
-        p.setPen(pen)
-        p.drawLine(QPointF(2, 19), QPointF(22, 19))
-        hump = QPainterPath(QPointF(3, 18))
-        hump.cubicTo(QPointF(6, 18), QPointF(6, 9), QPointF(9, 9))
-        hump.cubicTo(QPointF(12, 9), QPointF(12, 18), QPointF(15, 18))
-        p.drawPath(hump)
-        spike = QPainterPath(QPointF(16, 18))
-        spike.lineTo(QPointF(17.2, 6))
-        spike.lineTo(QPointF(18.4, 18))
-        p.drawPath(spike)
+        theme.paint_logo(p)
         p.end()
 
 

@@ -42,6 +42,11 @@ Pre-releases (v1.1.0-rc.1, ...) come before the release, on GitHub only.
   `export_pgf.write_tables` writes the tables from curves in memory;
   `src/amorph_tex.py` writes the folders of the figures and builds them.
 
+- A splash screen shows as soon as the GUI starts, with the step under way:
+  the first start of a newly unpacked package can take a minute while the
+  system checks its files, and without a window the program was started
+  again and again. The README says so too.
+
 ### Fixed
 
 - The axes of the plots of the GUI no longer scale numbers with an SI

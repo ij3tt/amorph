@@ -34,12 +34,20 @@ def main(argv=None):
         from amorph_gui import selftest
         return selftest.main(args.self_test, amorph=args.amorph)
 
+    # The splash first: loading the rest takes seconds, and a minute on the
+    # first start of a newly unpacked package
+    from amorph_gui import strings as S
+    from amorph_gui.splash import show_splash
+    splash = show_splash(sys.argv)
+    splash.set_step(S.SPLASH_LIBRARIES)
     from amorph_gui.app import application
     app = application(sys.argv)
+    splash.set_step(S.SPLASH_SCREENS)
     from amorph_gui.main_window import MainWindow
     from amorph_gui.preferences import Preferences
     window = MainWindow(Preferences(amorph=args.amorph, runs=args.runs))
     window.show()
+    splash.finish(window)
     if args.file:
         if args.file.lower().endswith(".amorph"):
             window.open_archive(args.file)

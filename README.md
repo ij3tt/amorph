@@ -101,6 +101,14 @@ Windows, and `AMORPH-GUI.app` on macOS, or in Terminal in its folder
 of files). It runs the sampler packed inside it, which then needs nothing
 more.
 
+**The first start of the interface is slow.** The first time after
+unpacking, the interface may take up to a minute to open, while the system
+checks every file of it: Microsoft Defender on Windows looks unsigned files
+up in its cloud, and Gatekeeper on macOS checks them too. The AMORPH splash
+screen shows at once with the step under way, and the window opens by
+itself: do not start the program again, which only opens another copy.
+Later starts take a few seconds.
+
 Guide to installing and operating:
 ==================================
 

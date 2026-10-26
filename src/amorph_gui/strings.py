@@ -9,6 +9,14 @@ they are, in English.
 
 APP_NAME = "AMORPH"
 WINDOW_TITLE = "AMORPH — аморфная и кристаллическая составляющие"
+# The splash screen while the program loads
+SPLASH_SUBTITLE = "аморфная и кристаллическая составляющие"
+SPLASH_STARTING = "Запуск…"
+SPLASH_LIBRARIES = "Загрузка библиотек: numpy, pandas, matplotlib…"
+SPLASH_SCREENS = "Подготовка экранов…"
+SPLASH_NOTE = ("Первый запуск после распаковки может занять до минуты: "
+               "система проверяет файлы программы. Не запускайте её "
+               "второй раз — окно откроется само.")
 
 # ---------------------------------------------------------------- navigation
 SCREEN_DATA = "Данные и модель"

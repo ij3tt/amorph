@@ -3,11 +3,12 @@ The look of the GUI, as the design shows it: a light interface with white
 cards on a grey ground, a blue accent, amber for the background of the
 model and for warnings, red and green for the diagnostic levels, blue for
 the amorphous and orange for the crystalline part. The colours, the fonts
-and the style sheet of every screen are here, and the styling of the
-pyqtgraph and matplotlib plots.
+and the style sheet of every screen are here, the mark of AMORPH, and the
+styling of the pyqtgraph and matplotlib plots.
 """
 
-from PySide6.QtGui import QColor, QFont
+from PySide6.QtCore import QPointF, Qt
+from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen
 
 # ------------------------------------------------------------------ colours
 
@@ -283,6 +284,31 @@ def qcolor(value, alpha=255):
     color = QColor(value)
     color.setAlpha(alpha)
     return color
+
+
+def paint_logo(p, scale=1.0):
+    """
+    The mark of AMORPH, a broad hump and a sharp peak on a baseline, in a
+    box of 24 by 24 points times scale at the origin of the painter p.
+    """
+    p.save()
+    p.setRenderHint(QPainter.Antialiasing)
+    p.scale(scale, scale)
+    pen = QPen(QColor(INK), 1.8)
+    pen.setCapStyle(Qt.RoundCap)
+    pen.setJoinStyle(Qt.RoundJoin)
+    p.setPen(pen)
+    p.setBrush(Qt.NoBrush)
+    p.drawLine(QPointF(2, 19), QPointF(22, 19))
+    hump = QPainterPath(QPointF(3, 18))
+    hump.cubicTo(QPointF(6, 18), QPointF(6, 9), QPointF(9, 9))
+    hump.cubicTo(QPointF(12, 9), QPointF(12, 18), QPointF(15, 18))
+    p.drawPath(hump)
+    spike = QPainterPath(QPointF(16, 18))
+    spike.lineTo(QPointF(17.2, 6))
+    spike.lineTo(QPointF(18.4, 18))
+    p.drawPath(spike)
+    p.restore()
 
 
 def swatches(items):
