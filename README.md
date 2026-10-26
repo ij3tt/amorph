@@ -375,11 +375,12 @@ Recommended settings and calibration
 ====================================
 
 The experiments on the bundled samples (pull requests #5, #6, #7 and #10,
-run by `.github/workflows/experiment.yml`) motivate one setting that differs
-from the paper, show how much the background control points and the range of
-2θ matter, and give a first look at the accuracy on three standards. Each
-material is a single dataset run with a few seeds: read the numbers below as
-what was observed on these samples, not as general accuracies.
+and later runs, all by `.github/workflows/experiment.yml`) motivate one
+setting that differs from the paper, show how much the background control
+points and the range of 2θ matter, and give a first look at the accuracy
+on three standards. Each material is a single dataset run with a few seeds:
+read the numbers below as what was observed on these samples, not as
+general accuracies.
 
 * `narrow_peak_nu: [1.0, 100.0]`. With ν < 1 the posterior of the fraction
   can have a second mode at or near 0 (see "The shape of the crystalline
@@ -404,35 +405,57 @@ what was observed on these samples, not as general accuracies.
     centred near 35°) the fraction was 0.72 with `[10, 40]` and 0.63 with
     `[26, 46]`. The whole scan (`N3RAW.txt`, 5–70°) settled it: with the
     background pinned by data on both sides, the fraction within 26–46° was
-    0.63–0.68 in every run, and 0.66–0.68 with the straight background over
-    20–50°. The 0.72 came from the control point at 10°, outside the data,
-    where the background was extrapolated: AMORPH warns about such a
-    control point. G30RAW gave 0.71–0.73 within 26–46° with every choice,
-    as it did on 26–46° alone.
-  - Even with data beyond the halo some choice remains. On N3RAW the
-    reasonable ones (range 20–50° or 15–70°, control points at the edges or
-    at 25° and 45°) spread the fraction within 26–46° over about 0.05, more
-    than the spread between seeds (0.01–0.02). Prefer the choice with the
-    higher log(Z), and quote the spread over the others as an uncertainty
-    of the result: for N3RAW within 26–46°, about 0.67, and 0.63–0.68 over
-    the reasonable choices.
+    0.56–0.68 in every run, never 0.72, and 0.65–0.68 in the ten runs with
+    the straight background over 20–50°. The 0.72 came from the control
+    point at 10°, outside the data, where the background was extrapolated:
+    AMORPH warns about such a control point. G30RAW gave 0.71–0.73 within
+    26–46° on 20–50° with either choice of control points, as it did on
+    26–46° alone, and 0.72–0.77 on 15–70°.
+  - Even with data beyond the halo some choice remains. On N3RAW cut to
+    20–50° the reasonable choices (control points at the edges or at 25°
+    and 45°) spread the fraction within 26–46° over 0.63–0.68, more than
+    the spread between seeds (0.01–0.02). Prefer the choice with the higher
+    log(Z), and quote the spread over the others as an uncertainty of the
+    result: for N3RAW within 26–46°, about 0.66, and 0.63–0.68 over the
+    reasonable choices.
+  - A wider range is not better. On 15–70° (with `left_edge: 0.2`,
+    `right_edge: 0.95`, see below, and the caps raised to 1000/200) four
+    seeds of 10000 saves gave fractions spread over 0.05–0.1 between seeds,
+    against about 0.01 on 20–50°: for N3RAW 0.63–0.68 over 15–70° and
+    0.56–0.66 within 26–46°, for G30RAW 0.72–0.78 and 0.72–0.77. The
+    posterior has several modes, and the seeds settle in different ones.
+    The N3RAW run with 0.56 had a log(Z) of −9581, 15–20 nats below the
+    others (−9561 to −9566): a run whose log(Z) is well below that of the
+    other seeds on the same data has missed most of the posterior, and is
+    left out or run again. Analyse a range that reaches just beyond the
+    halo, such as 20–50° here; on a wider one, run four or more seeds and
+    quote their spread.
 * The fraction depends on the range of 2θ it is integrated over: quote the
   range with it. Make sure that `left_edge` and `right_edge` let the wide
   peaks lie under every amorphous hump in the range. By default they cover
   0.3–0.7 of it: on 15–70° that is 31.5–53.5°, which leaves out the second
   hump of N3RAW and G30RAW near 60°. With `left_edge: 0.2` and
   `right_edge: 0.95` (26–67°) the wide component took in both humps, and
-  the fraction over 15–70° was 0.66–0.67 for N3RAW and 0.74 for G30RAW,
-  against 0.65–0.66 and 0.69 over 20–50° (three of these four runs were
-  stopped by the time budget at 54–61% of their saves, so these numbers are
-  preliminary).
+  the fraction over 15–70° was 0.63–0.68 for N3RAW and 0.72–0.78 for
+  G30RAW, against 0.63–0.66 and 0.69 over 20–50°.
 * Comparing samples measured and analysed the same way is more robust than
   any single fraction: G30RAW came out more amorphous than N3RAW by 0.04–0.08
-  with every range and choice of control points.
+  on 20–50° with either choice of control points, and by 0.10 on average
+  over 15–70°, where single runs scatter more.
 * `max_num_narrow_peaks: 500` and `max_num_wide_peaks: 100`. On the
   standards, doubling the caps did not move the measured fraction but made
   the runs up to twice as long. Raise them to 1000/200 if the diagnosis
   (below) shows a large posterior weight at the cap (say, above 20%).
+
+Most of these runs were made before the faster sampler of pull request #14,
+which has the same model. Four seeds of 10000 saves each, before and after
+it, gave the same results within the spread between seeds: on N3RAW over
+20–50° a fraction of 0.640–0.645 before and 0.632–0.641 after (0.659 and
+0.656 within 26–46° on average), on the 50% standard 0.498–0.507 and
+0.496–0.512, while the uncertainty of each run was ±0.02–0.04; log(Z)
+differed by less than its spread between seeds (0.5 nats on N3RAW, 3 on
+the 50% standard). The faster sampler made 2.4–3.2 times as many saves per
+minute.
 
 Standards
 ---------
@@ -628,12 +651,25 @@ version 1.2.0:
    (`git tag -a v1.2.0`) gives its message as the notes instead.
 
 `.gitverse/workflows/release.yml` mirrors the release to GitVerse when the
-same tag is pushed: it downloads the GitHub Release files, verifies their
-SHA-256 checksums and publishes them with the same notes. The GitVerse
-repository needs a `GITVERSE_API_KEY` secret with Repositories → Write
-permission. For an existing tag, choose "Run workflow" for GitVerse Release
-and run it on the tag, not on a branch. The official release action accepts
-only `refs/tags/` references.
+same tag is pushed there (`git push gitverse.ru v1.2.0`): it waits for the
+GitHub Release, downloads its seven files, verifies their SHA-256 checksums
+and publishes them with the same notes. The GitVerse repository needs a
+`GITVERSE_API_KEY` secret with Repositories → Write permission. GitHub took
+about 16 minutes to build the release of v1.0.0, and the mirror waits up to
+20 minutes of its 30 (`scripts/ci/download_release.sh`). If the GitHub
+Release takes longer, the mirror fails and says so: once the GitHub Release
+has all seven files, choose "Run workflow" for Release on GitVerse and run
+it on the tag, not on a branch (the release action accepts only
+`refs/tags/` references).
+
+The workflow runs only on a tag whose commit has it, so v1.0.0, tagged
+before it was added, is published on GitVerse by hand, once:
+
+1. `bash scripts/ci/download_release.sh v1.0.0 ~/amorph-v1.0.0` downloads
+   the seven files of the GitHub Release and checks them.
+2. `bash scripts/ci/release_notes.sh v1.0.0` prints its notes.
+3. On GitVerse, make a new release of the existing tag `v1.0.0`, titled
+   "AMORPH 1.0.0", with these notes, and attach the seven files.
 
 `.github/workflows/validate.yml` compares the results of two versions of
 AMORPH: it runs both on the four bundled datasets and writes a table of the

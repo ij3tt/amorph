@@ -2,6 +2,13 @@ name: Release
 
 # Mirror the tested packages of the corresponding GitHub Release. GitVerse
 # has Linux runners only, so the macOS packages cannot be rebuilt here.
+#
+# Pushed with the tag, this starts while GitHub is still building the
+# release (about 16 minutes): download_release.sh waits for it up to 20 of
+# the 30 minutes of the job. If it takes longer, the job fails with a
+# message; "Run workflow" on the tag once the GitHub Release is complete.
+# Only a tag whose commit has this file can run it; v1.0.0, tagged before,
+# is published on GitVerse by hand (see "Releases" in the README).
 
 on:
   push:
