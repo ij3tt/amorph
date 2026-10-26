@@ -264,7 +264,8 @@ class MainWindow(QMainWindow):
         run.saves, run.levels = info["saves"], info["levels"]
         run.log = [info["log"]]
         run.results, run.archive = info["results"], info["archive"]
-        run.status = R.INCOMPLETE if run.planned and             run.saves < run.planned else R.DONE
+        run.status = R.INCOMPLETE if run.planned and \
+            run.saves < run.planned else R.DONE
         self.runs_screen.update_run(run)
         self.results_screen.show_results(
             run.results, S.SOURCE_RUN.format(run.folder),
