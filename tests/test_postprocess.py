@@ -294,6 +294,64 @@ def test_export_pgf_refuses_an_undefined_fraction(tmp_path, monkeypatch):
         export_pgf.main()
 
 
+def test_export_pgf_takes_the_data_file_of_config_yaml(tmp_path, monkeypatch):
+    # Without --data, the data file is the one config.yaml names, from the
+    # folder of config.yaml, and the title is its name
+    run = tmp_path / "run"
+    run.mkdir()
+    make_run(run, samples=6, without_wide=0)
+    monkeypatch.chdir(tmp_path)
+
+    monkeypatch.setattr(sys, "argv",
+                        ["export_pgf.py", "--config", "run/config.yaml",
+                         "--posterior", "run/posterior_sample.txt",
+                         "--out", "pgf", "--samples", "0"])
+    export_pgf.main()
+
+    data = np.loadtxt(os.path.join("run", "demo_data.txt"))
+    exported = np.loadtxt(os.path.join("pgf", "xrd_data.dat"), skiprows=1)
+    assert exported == pytest.approx(data, rel=1E-5)
+    with open(os.path.join("pgf", "xrd_meta.tex")) as f:
+        assert "\\def\\xrdtitle{demo\\_data.txt}\n" in f.read()
+
+
+def test_export_pgf_keeps_a_given_title(tmp_path, monkeypatch):
+    make_run(tmp_path, samples=6, without_wide=0)
+    monkeypatch.chdir(tmp_path)
+
+    monkeypatch.setattr(sys, "argv",
+                        ["export_pgf.py", "--out", "pgf", "--samples", "0",
+                         "--title", r"$\mathbf{Zr_{48}}$ 50%"])
+    export_pgf.main()
+
+    with open(os.path.join("pgf", "xrd_meta.tex")) as f:
+        assert "\\def\\xrdtitle{$\\mathbf{Zr_{48}}$ 50\\%}\n" in f.read()
+
+
+def test_export_pgf_needs_a_data_file(tmp_path, monkeypatch):
+    make_run(tmp_path, samples=6, without_wide=0)
+    monkeypatch.chdir(tmp_path)
+    argv = ["export_pgf.py", "--out", "pgf", "--samples", "0"]
+
+    os.remove("config.yaml")
+    monkeypatch.setattr(sys, "argv", argv)
+    with pytest.raises(SystemExit, match="config.yaml not found"):
+        export_pgf.main()
+
+    with open("config.yaml", "w") as f:
+        f.write("seed: 1\n")
+    with pytest.raises(SystemExit, match="names no data_file"):
+        export_pgf.main()
+
+
+def test_latex_text_prints_a_file_name_as_it_is():
+    assert export_pgf.latex_text("easy_data.txt") == r"easy\_data.txt"
+    assert export_pgf.latex_text("50% glass #2 {a}&b.txt") == \
+        r"50\% glass \#2 \{a\}\&b.txt"
+    assert export_pgf.latex_text("~^$\\") == \
+        r"\~{}\^{}\$\textbackslash{}"
+
+
 def test_diagnose_gives_the_fraction_within_a_range(tmp_path):
     # Every particle has the wide component inside [20, 30] and the narrow
     # one outside: the fraction within the range is 1, over all the data less
