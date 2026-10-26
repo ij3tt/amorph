@@ -61,15 +61,23 @@ def test_the_picture_of_the_splash():
 
 
 def test_the_gui_starts_with_the_splash(qtbot, tmp_path, monkeypatch):
-    # The event loop would wait for the window to close
-    monkeypatch.setattr(QApplication, "exec", lambda self: 0)
+    # What is on the screen when the event loop would start: the window of
+    # main() is gone once main() returns. The loop would wait for the
+    # window to close, so close it here.
+    seen = {}
+
+    def event_loop(self):
+        top = QApplication.topLevelWidgets()
+        seen["windows"] = [w for w in top if isinstance(w, MainWindow)
+                           and w.isVisible()]
+        seen["splashes"] = [w for w in top if isinstance(w, SP.Splash)
+                            and w.isVisible()]
+        for w in seen["windows"]:
+            w.close()
+        return 0
+
+    monkeypatch.setattr(QApplication, "exec", event_loop)
     assert start.main(["--runs", str(tmp_path / "runs")]) == 0
-    windows = [w for w in QApplication.topLevelWidgets()
-               if isinstance(w, MainWindow) and w.isVisible()]
-    assert windows
-    splashes = [w for w in QApplication.topLevelWidgets()
-                if isinstance(w, SP.Splash)]
-    qtbot.waitUntil(lambda: not any(s.isVisible() for s in splashes),
-                    timeout=5000)
-    for w in windows:
-        w.close()
+    assert len(seen["windows"]) == 1
+    # finish() closed the splash once the window was shown
+    assert seen["splashes"] == []
