@@ -27,8 +27,10 @@ interface" below) for three systems, ready to run:
 | `AMORPH-GUI-<tag>-macos-arm64.zip` | the graphical interface, macOS on Apple Silicon |
 | `AMORPH-<tag>-SHA256SUMS.txt` | the SHA-256 checksums of the six |
 
-`<tag>` is the version, such as `v1.0.0`; [CHANGELOG.md](CHANGELOG.md) says
-what changed in each. Each archive holds one folder, `AMORPH-<tag>-<system>`,
+`<tag>` is the version, such as `v1.0.1`; [CHANGELOG.md](CHANGELOG.md) says
+what changed in each. From v1.0.1 on, the releases are also on
+[GitVerse](https://gitverse.ru/ijjjjke/amorph/releases), apart from the
+GUI package for Linux, which is larger than GitVerse allows. Each archive holds one folder, `AMORPH-<tag>-<system>`,
 with
 
 * `AMORPH` (`AMORPH.exe` on Windows), the sampler;
@@ -662,14 +664,11 @@ has all seven files, choose "Run workflow" for Release on GitVerse and run
 it on the tag, not on a branch (the release action accepts only
 `refs/tags/` references).
 
-The workflow runs only on a tag whose commit has it, so v1.0.0, tagged
-before it was added, is published on GitVerse by hand, once:
-
-1. `bash scripts/ci/download_release.sh v1.0.0 ~/amorph-v1.0.0` downloads
-   the seven files of the GitHub Release and checks them.
-2. `bash scripts/ci/release_notes.sh v1.0.0` prints its notes.
-3. On GitVerse, make a new release of the existing tag `v1.0.0`, titled
-   "AMORPH 1.0.0", with these notes, and attach the seven files.
+GitVerse takes release files of up to 100 MB, and 4 GB of releases per
+account. A larger file, such as the GUI package for Linux (about
+120 MB), stays on GitHub only: the notes of the GitVerse Release link to
+it. The workflow runs only on a tag whose commit has it, so GitVerse has
+the releases from v1.0.1 on; v1.0.0 is on GitHub only.
 
 `.github/workflows/validate.yml` compares the results of two versions of
 AMORPH: it runs both on the four bundled datasets and writes a table of the

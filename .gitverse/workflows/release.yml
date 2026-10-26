@@ -7,8 +7,11 @@ name: Release
 # release (about 16 minutes): download_release.sh waits for it up to 20 of
 # the 30 minutes of the job. If it takes longer, the job fails with a
 # message; "Run workflow" on the tag once the GitHub Release is complete.
-# Only a tag whose commit has this file can run it; v1.0.0, tagged before,
-# is published on GitVerse by hand (see "Releases" in the README).
+#
+# GitVerse refuses release files larger than 100 MB (the GUI package for
+# Linux is about 120 MB): those stay on GitHub only, and the notes of the
+# GitVerse Release link to them. Only a tag whose commit has this file can
+# run it, so GitVerse has the releases from v1.0.1 on.
 
 on:
   push:
@@ -22,11 +25,13 @@ jobs:
     timeout-minutes: 30
     env:
       TAG: ${{ github.ref_name }}
+      # The largest release file that GitVerse takes, in bytes
+      MAX_SIZE: 100000000
     steps:
       - uses: actions/checkout@v4
 
       - name: Check the version and read the release notes
-        id: notes
+        id: version
         shell: bash
         run: |
           version="$(sed -n 's/^project(AMORPH VERSION \([0-9.]*\).*/\1/p' \
@@ -37,34 +42,53 @@ jobs:
           fi
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
           bash scripts/ci/release_notes.sh "${TAG}" > notes.md
+
+      - name: Download and verify the GitHub Release
+        shell: bash
+        run: bash scripts/ci/download_release.sh "${TAG}" release
+
+      - name: Leave the files over 100 MB on GitHub
+        id: notes
+        shell: bash
+        run: |
+          mkdir -p github-only
+          for f in release/*; do
+              if [ "$(stat -c %s "${f}")" -gt "${MAX_SIZE}" ]; then
+                  mv "${f}" github-only/
+              fi
+          done
+          if [ -n "$(ls github-only)" ]; then
+              {
+                  echo
+                  echo "GitVerse takes files of up to 100 MB: download these" \
+                       "from the GitHub Release (the checksums list them too)."
+                  echo
+                  for f in github-only/*; do
+                      name="$(basename "${f}")"
+                      echo "- [${name}](https://github.com/ij3tt/amorph/releases/download/${TAG}/${name})," \
+                           "$(( $(stat -c %s "${f}") / 1000000 )) MB"
+                  done
+              } >> notes.md
+          fi
+          ls -l release github-only
           {
               echo 'body<<AMORPH_RELEASE_NOTES'
               cat notes.md
               echo 'AMORPH_RELEASE_NOTES'
           } >> "${GITHUB_OUTPUT}"
 
-      - name: Download and verify the GitHub Release
-        shell: bash
-        run: bash scripts/ci/download_release.sh "${TAG}" release
-
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
           go-version: '>=1.23'
 
+      # Every file in release/
       - name: Create or update the GitVerse Release
         uses: actions/create-release@v1
         with:
           api_key: ${{ secrets.GITVERSE_API_KEY }}
-          title: AMORPH ${{ steps.notes.outputs.version }}
+          title: AMORPH ${{ steps.version.outputs.version }}
           body: ${{ steps.notes.outputs.body }}
-          files: |
-            release/AMORPH-${{ env.TAG }}-windows-x64.zip
-            release/AMORPH-${{ env.TAG }}-linux-x64.tar.gz
-            release/AMORPH-${{ env.TAG }}-macos-arm64.zip
-            release/AMORPH-GUI-${{ env.TAG }}-windows-x64.zip
-            release/AMORPH-GUI-${{ env.TAG }}-linux-x64.tar.gz
-            release/AMORPH-GUI-${{ env.TAG }}-macos-arm64.zip
-            release/AMORPH-${{ env.TAG }}-SHA256SUMS.txt
+          files: release
           draft: false
           pre_release: false
