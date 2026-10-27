@@ -823,6 +823,13 @@ latex xrd_fit.tex                                # writes xrd_fit.dvi
 dvisvgm --no-fonts --exact-bbox xrd_fit.dvi      # writes xrd_fit.svg
 ```
 
+The words of the figures (axes, legends, the note under the fraction) come
+with the tables, in English or in Russian: `export_pgf.py --language ru`,
+the switch «язык» of «Сравнение», the menu of «Данные для PGFPlots…» on
+«Результаты». The `.tex` files of `doc/figures` set them in Tempora, a
+Times-like font with Cyrillic, with the mathematics of newtxmath; tables
+of an older `export_pgf.py` get the English words.
+
 In the GUI, «Данные для PGFPlots…» on «Результаты» writes the same tables
 for a run, and «Сравнение» writes them for the ticked seeds together,
 with those of `doc/figures/xrd_seeds.tex`, the figure of several seeds:

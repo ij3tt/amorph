@@ -82,6 +82,15 @@ Pre-releases (v1.1.0-rc.1, ...) come before the release, on GitHub only.
   $98.0^{+1.5}_{-5.0}$, not 98 ± 10. `export_pgf.py` writes it in
   `\xrdamorph`, its numbers in `\xrdamorphmedian`, `\xrdamorphlo` and
   `\xrdamorphhi`; tables of an older `export_pgf.py` still show the mean.
+- The words of both figures (`xrd_fit`, `xrd_seeds`) come with their
+  tables, in English or in Russian (`src/figure_labels.py`):
+  `export_pgf.py --language ru`, the switch «язык» of «Сравнение» for the
+  preview and every export, the menu of «Данные для PGFPlots…» on
+  «Результаты», and the language of «Отчёт LaTeX…». In Russian the
+  fraction in percent reads «Степень аморфности», as «доля» is 0-1
+  everywhere else. The `.tex` files of the figures load Tempora, a
+  Times-like font with Cyrillic, with newtxmath, instead of newtxtext;
+  tables of an older `export_pgf.py` get the English words.
 
 ### Fixed
 

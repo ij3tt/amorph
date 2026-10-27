@@ -268,7 +268,18 @@ def test_the_joint_report_and_its_figure(window, qtbot, archives, tmp_path):
     screen.export_report(report)
     english = str(tmp_path / "report_en")
     screen.export_report(english, "en")
+    # The figure in Russian: the preview and the folder for LaTeX
+    screen.set_language("ru")
+    assert screen.language_buttons["ru"].isChecked()
+    assert any("Интенсивность" in ax.get_ylabel()
+               for ax in screen.figure.axes)
+    russian = str(tmp_path / "tex_ru")
+    screen.export_tex(russian)
     qtbot.waitUntil(lambda: screen.tasks.active == 0, timeout=30000)
+    with open(os.path.join(russian, "pgf", "seeds_meta.tex"),
+              encoding="utf-8") as f:
+        assert "Интенсивность" in f.read()
+    screen.set_language("en")
     with open(os.path.join(report, "report.tex"), encoding="utf-8") as f:
         assert "{0:.3f}".format(screen.pooled["quantiles"][2]) in f.read()
     assert os.path.isfile(os.path.join(report, "pgf", "seeds_halo.dat"))

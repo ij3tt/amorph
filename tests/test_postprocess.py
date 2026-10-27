@@ -271,7 +271,7 @@ def test_export_pgf_reports_the_fraction_of_display(tmp_path, monkeypatch):
         assert f.readline() == "x sample1 sample2\n"
 
     # The figure gives the median of the fraction with its 50% interval
-    with open(os.path.join("pgf", "xrd_meta.tex")) as f:
+    with open(os.path.join("pgf", "xrd_meta.tex"), encoding="utf-8") as f:
         meta = f.read()
     for name, q in (("median", 50.0), ("lo", 25.0), ("hi", 75.0)):
         match = re.search(r"\\xrdamorph" + name + r"\{([0-9.]+)\}", meta)
@@ -279,6 +279,15 @@ def test_export_pgf_reports_the_fraction_of_display(tmp_path, monkeypatch):
         assert float(match.group(1)) == pytest.approx(
             np.percentile(100.0 * fraction, q), abs=0.051)
     assert "\\def\\xrdamorph{$" in meta
+    assert "\\def\\xrdylabel{Intensity, arb. un.}" in meta
+
+    # In Russian
+    monkeypatch.setattr(sys, "argv", sys.argv + ["--language", "ru"])
+    export_pgf.main()
+    with open(os.path.join("pgf", "xrd_meta.tex"), encoding="utf-8") as f:
+        meta = f.read()
+    assert "\\def\\xrdylabel{Интенсивность, отн. ед.}" in meta
+    assert "\\def\\xrdamorphname{Степень аморфности}" in meta
 
 
 def test_the_fraction_on_the_figure_stays_within_0_and_100():

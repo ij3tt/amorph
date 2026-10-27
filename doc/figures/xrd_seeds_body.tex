@@ -50,6 +50,18 @@
 \fi
 \input{\xrddatadir seeds_meta.tex}
 
+% The words of the figure come with the tables, in their language; tables
+% of an older GUI have none, and get these
+\providecommand\seedsylabel{Intensity, counts}
+\providecommand\seedslegband{model, 90\%}
+\providecommand\seedslegbg{background}
+\providecommand\seedsleghalo{amorphous halo}
+\providecommand\seedslegmodel{model (mean)}
+\providecommand\seedslegxtal{crystalline peaks}
+\providecommand\seedsfractionlabel{amorphous fraction}
+\providecommand\seedsdensitylabel{posterior density}
+\providecommand\seedspooled{pooled}
+
 \begin{tikzpicture}
 \begin{groupplot}[group style={group size=2 by 1, horizontal sep=1.6cm},
                   height=7cm, seeds axis]
@@ -57,7 +69,7 @@
 % --- (a) the scan and its parts ---------------------------------------------
 \nextgroupplot[width=12cm,
     xmin=\seedsxmin, xmax=\seedsxmax, ymin=0, ymax=\seedsymax,
-    xlabel={$2\theta$, $^\circ$}, ylabel={Intensity, counts},
+    xlabel={$2\theta$, $^\circ$}, ylabel={\seedsylabel},
     title={\textbf{(a)} \seedstitle},
     legend style={at={(0.99,0.99)}, anchor=north east, font=\footnotesize,
                   draw=none, fill=white, fill opacity=0.8, text opacity=1},
@@ -67,32 +79,32 @@
 \addplot[name path=hi, draw=none, forget plot]
     table[x=x, y=hi] {\xrddatadir seeds_curves.dat};
 \addplot[seedsband] fill between[of=lo and hi];
-\addlegendentry{model, 90\%}
+\addlegendentry{\seedslegband}
 \addplot[name path=bg, seedsbg, densely dashed, line width=0.8pt]
     table[x=x, y=bg] {\xrddatadir seeds_curves.dat};
-\addlegendentry{background}
+\addlegendentry{\seedslegbg}
 \addplot[name path=halo, seedshalo, line width=1.1pt]
     table[x=x, y=halo] {\xrddatadir seeds_curves.dat};
-\addlegendentry{amorphous halo}
+\addlegendentry{\seedsleghalo}
 \addplot[seedshalofill, opacity=0.7, forget plot] fill between[of=bg and halo];
 \addplot[name path=model, seedsink, line width=0.9pt]
     table[x=x, y=model] {\xrddatadir seeds_curves.dat};
-\addlegendentry{model (mean)}
+\addlegendentry{\seedslegmodel}
 \addplot[seedsxtalfill, opacity=0.6] fill between[of=halo and model];
-\addlegendentry{crystalline peaks}
+\addlegendentry{\seedslegxtal}
 \input{\xrddatadir seeds_halos.tex}
 \addplot[only marks, mark=*, mark size=0.55pt, seedsdata, forget plot]
     table[x=x, y=intensity] {\xrddatadir xrd_data.dat};
 \node[anchor=north west, font=\small, align=left, fill=white,
       fill opacity=0.8, text opacity=1] at (rel axis cs:0.02,0.98)
-    {amorphous fraction \seedsmedian\\
+    {\seedsfractionlabel{} \seedsmedian\\
      50\%: [\seedsqlo, \seedsqhi]\\
      90\%: [\seedsqqlo, \seedsqqhi]\\
      \seedsspread};
 
 % --- (b) the fraction --------------------------------------------------------
 \nextgroupplot[width=6.5cm, xmin=\seedsfmin, xmax=\seedsfmax, ymin=0,
-    xlabel={amorphous fraction}, ylabel={posterior density},
+    xlabel={\seedsfractionlabel}, ylabel={\seedsdensitylabel},
     title={\textbf{(b)} \seedscount},
     legend style={at={(0.02,0.98)}, anchor=north west, font=\footnotesize,
                   draw=none, fill=none},
@@ -100,7 +112,7 @@
 \addplot[fill=seedshalofill, draw=seedshalo, const plot mark mid,
          line width=0.6pt]
     table[x=f, y=pooled] {\xrddatadir seeds_fraction.dat} \closedcycle;
-\addlegendentry{pooled}
+\addlegendentry{\seedspooled}
 \input{\xrddatadir seeds_densities.tex}
 \end{groupplot}
 \end{tikzpicture}

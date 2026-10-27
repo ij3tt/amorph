@@ -34,6 +34,16 @@
 \fi
 \input{\xrddatadir xrd_meta.tex}
 
+% The words of the figure come with the tables, in their language (export_pgf
+% --language); tables of an older export_pgf.py have none, and get these
+\providecommand\xrdamorphname{Amorphous}
+\providecommand\xrdylabel{Intensity, arb. un.}
+\providecommand\xrdlegdata{Experimental}
+\providecommand\xrdlegmodel{Model (mean)}
+\providecommand\xrdlegamorph{Amorphous (mean)}
+\providecommand\xrdlegxtal{Crystalline peaks (mean)}
+\providecommand\xrdlegbg{Background (mean)}
+
 \begin{tikzpicture}
 \begin{axis}[
     width=17.0cm,
@@ -41,7 +51,7 @@
     xmin=\xrdxmin, xmax=\xrdxmax,
     ymin=\xrdymin, ymax=\xrdymax,
     xlabel={$2\theta$, $^\circ$},
-    ylabel={Intensity, arb. un.},
+    ylabel={\xrdylabel},
     title={\xrdtitle},
     title style={font=\LARGE\bfseries, yshift=8pt},
     label style={font=\large},
@@ -71,19 +81,19 @@
 % curves, but it is the first entry of the legend).
 \addlegendimage{only marks, mark=o, mark size=1.7pt,
                 mark options={solid, black, line width=0.5pt}}
-\addlegendentry{Experimental}
+\addlegendentry{\xrdlegdata}
 
 \addlegendimage{xrdgreen, line width=2.6pt, solid}
-\addlegendentry{Model (mean)}
+\addlegendentry{\xrdlegmodel}
 
 \addlegendimage{blue, line width=2.2pt, dashed}
-\addlegendentry{Amorphous (mean)}
+\addlegendentry{\xrdlegamorph}
 
 \addlegendimage{red, line width=2.2pt, dashed}
-\addlegendentry{Crystalline peaks (mean)}
+\addlegendentry{\xrdlegxtal}
 
 \addlegendimage{xrdgold, line width=2.2pt, dashed}
-\addlegendentry{Background (mean)}
+\addlegendentry{\xrdlegbg}
 
 % --- pale posterior samples -------------------------------------------------
 \ifnum\xrdnsamples>0
@@ -112,11 +122,11 @@
 % of an older export_pgf.py give the mean, without \xrdamorphnote
 \ifx\xrdamorphnote\undefined
 \node[anchor=north west, font=\Large] at (rel axis cs:0.025,0.975)
-    {Amorphous = \xrdamorph};
+    {\xrdamorphname{} = \xrdamorph};
 \else
 \node[anchor=north west, font=\Large, align=left]
     at (rel axis cs:0.025,0.975)
-    {Amorphous = \xrdamorph\\[2pt]{\normalsize\xrdamorphnote}};
+    {\xrdamorphname{} = \xrdamorph\\[2pt]{\normalsize\xrdamorphnote}};
 \fi
 
 \end{axis}

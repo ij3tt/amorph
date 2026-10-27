@@ -266,6 +266,8 @@ class CompareScreen(Screen):
         self._order = itertools.count()
         self.pooled = None
         self.figure_style = "fit"
+        # The language of the words on the figure (figure_labels)
+        self.figure_language = "en"
         self.latex = amorph_tex.find_latex()
         self.add_button(S.ADD_ARCHIVES, self.add_archives_dialog)
         self.add_button(S.ADD_FOLDER, self.add_folder_dialog,
@@ -426,6 +428,26 @@ class CompareScreen(Screen):
             group.addButton(button)
             segments.addWidget(button)
             self.style_buttons[key] = button
+        top.addLayout(segments)
+        # The language of the words on the figure, for the preview and every
+        # export of it
+        top.addSpacing(8)
+        top.addWidget(styled_label(S.FIGURE_LANGUAGE, "muted", wrap=False))
+        group = QButtonGroup(self)
+        group.setExclusive(True)
+        segments = QHBoxLayout()
+        segments.setSpacing(0)
+        self.language_buttons = {}
+        for key, label in S.FIGURE_LANGUAGES:
+            button = QPushButton(label)
+            button.setObjectName("segment")
+            button.setCheckable(True)
+            button.setChecked(key == self.figure_language)
+            button.clicked.connect(
+                lambda checked, k=key: self.set_language(k))
+            group.addButton(button)
+            segments.addWidget(button)
+            self.language_buttons[key] = button
         top.addLayout(segments)
         layout.addLayout(top)
 
@@ -670,12 +692,18 @@ class CompareScreen(Screen):
         self.style_note.setText(STYLE_NOTES[style])
         self._redraw()
 
+    def set_language(self, language):
+        self.figure_language = language
+        self.language_buttons[language].setChecked(True)
+        self._redraw()
+
     def _redraw(self):
         self.figure.clear()
         if self.pooled is not None:
             with matplotlib.rc_context(theme.matplotlib_style()):
                 figures.DRAW[self.figure_style](self.figure, self.pooled,
-                                                self.figure_title())
+                                                self.figure_title(),
+                                                self.figure_language)
         # Now rather than at idle time, when the window may be gone
         self.canvas.draw()
 
@@ -693,10 +721,13 @@ class CompareScreen(Screen):
     def export_data(self, folder):
         """
         The tables of PGFPlots of the joint report into folder, as
-        export_pgf.py writes them, with those of the two-panel figure.
+        export_pgf.py writes them, with those of the two-panel figure, in
+        the language of the figure.
         """
         pooled, title = self.pooled, self.figure_title()
-        self._export(lambda: amorph_tex.write_tables(pooled, folder, title))
+        language = self.figure_language
+        self._export(lambda: amorph_tex.write_tables(pooled, folder, title,
+                                                     language))
 
     def export_tex_dialog(self):
         folder = self.choose_folder(S.CHOOSE_TEX_FOLDER)
@@ -705,13 +736,14 @@ class CompareScreen(Screen):
 
     def export_tex(self, folder):
         """
-        The folder of the figure in the chosen style, ready for LaTeX.
+        The folder of the figure in the chosen style and language, ready
+        for LaTeX.
         """
         pooled, style = self.pooled, self.figure_style
-        title = self.figure_title()
+        title, language = self.figure_title(), self.figure_language
 
         def job():
-            amorph_tex.write_figure(pooled, folder, style, title)
+            amorph_tex.write_figure(pooled, folder, style, title, language)
             return folder
 
         self._export(job)
@@ -746,7 +778,7 @@ class CompareScreen(Screen):
         its preview as PNG.
         """
         pooled, style = self.pooled, self.figure_style
-        title = self.figure_title()
+        title, language = self.figure_title(), self.figure_language
         tools = self.latex
         if pooled is None:
             return
@@ -755,7 +787,7 @@ class CompareScreen(Screen):
             try:
                 with matplotlib.rc_context(theme.matplotlib_style()):
                     fig = Figure(figsize=PNG_SIZE[style], layout="constrained")
-                    figures.DRAW[style](fig, pooled, title)
+                    figures.DRAW[style](fig, pooled, title, language)
                     fig.savefig(path, dpi=PNG_DPI)
             except OSError as e:
                 self.report_error(S.CANNOT_EXPORT, S.CANNOT_SAVE.format(path)
@@ -767,7 +799,8 @@ class CompareScreen(Screen):
         def job():
             folder = tempfile.mkdtemp(prefix="amorph_tex_")
             try:
-                amorph_tex.write_figure(pooled, folder, style, title)
+                amorph_tex.write_figure(pooled, folder, style, title,
+                                        language)
                 built = amorph_tex.build(folder, style, kind, tools)
                 shutil.copyfile(built, path)
             finally:

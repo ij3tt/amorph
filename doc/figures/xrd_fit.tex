@@ -15,8 +15,14 @@
 \usepackage{pgfplots}
 \pgfplotsset{compat=1.18}
 
-% A Times-like font, as used for the original figure
-\usepackage{newtxtext,newtxmath}
+% A Times-like font, as used for the original figure, with Cyrillic for
+% the words in Russian (export_pgf.py --language ru): tempora, by the
+% author of newtx, with the mathematics of newtxmath. fontenc after
+% tempora, which sets T1: T2A, the last, is the encoding of the text
+\usepackage{tempora}
+\usepackage{newtxmath}
+\usepackage[T1,T2A]{fontenc}
+\usepackage[utf8]{inputenc}
 
 \begin{document}
 \input{xrd_fit_body.tex}

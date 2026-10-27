@@ -83,8 +83,8 @@ class ResultsScreen(Screen):
                             S.SAVE_POSTERIOR_TIP),
             self.add_button(S.SAVE_FIGURES, self.save_figures,
                             S.SAVE_FIGURES_TIP),
-            self.add_button(S.EXPORT_DATA, self.save_pgf_data,
-                            S.EXPORT_DATA_ONE_TIP),
+            self.add_button(S.EXPORT_DATA, None, S.EXPORT_DATA_ONE_TIP,
+                            menu=language_menu(self, self.save_pgf_data)),
             self.add_button(S.EXPORT_REPORT, None, S.EXPORT_REPORT_TIP,
                             menu=language_menu(self, self.save_report))]
         for button in self.export_buttons:
@@ -441,24 +441,25 @@ class ResultsScreen(Screen):
 
         self._export(job, S.FIGURES_SAVED)
 
-    def save_pgf_data(self):
+    def save_pgf_data(self, language):
         if self.results is None:
             return
         folder = QFileDialog.getExistingDirectory(self, S.CHOOSE_DATA_FOLDER)
         if folder:
-            self.write_pgf_data(folder)
+            self.write_pgf_data(folder, language)
 
-    def write_pgf_data(self, folder):
+    def write_pgf_data(self, folder, language="en"):
         """
         The tables of PGFPlots of the run, as export_pgf.py writes them for
-        doc/figures/xrd_fit.tex, into folder.
+        doc/figures/xrd_fit.tex, into folder, with the words of the figures
+        in language ("en" or "ru").
         """
         results = self.results
         title = results.info.get("data_file", "amorph")
 
         def job():
             amorph_tex.write_tables(amorph_seeds.pool([results]), folder,
-                                    title)
+                                    title, language)
             return folder
 
         self._export(job)

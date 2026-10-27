@@ -49,7 +49,7 @@ a = Analysis(
     datas=datas,
     hiddenimports=collect_submodules("amorph_gui")
     + ["amorph_stats", "amorph_results", "amorph_archive", "dnest_functions",
-       "amorph_seeds", "amorph_tex", "export_pgf"],
+       "amorph_seeds", "amorph_tex", "export_pgf", "figure_labels"],
     excludes=["tkinter", "IPython", "PyQt5", "PyQt6", "PySide2", "pytest"],
 )
 pyz = PYZ(a.pure)

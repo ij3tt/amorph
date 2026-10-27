@@ -263,8 +263,9 @@ def write_report(rows, folder, title=None, date=None, language="ru"):
               and r.get("q50") is not None]
     title = title or str(chosen[0]["data_file"])
     os.makedirs(folder, exist_ok=True)
+    # The figures in the language of the report
     amorph_tex.write_tables(pooled, os.path.join(folder, amorph_tex.DATA_DIR),
-                            title)
+                            title, language)
     source = amorph_tex.template_dir()
     for figure in ("fit", "seeds"):
         body = amorph_tex.FIGURES[figure][1]
