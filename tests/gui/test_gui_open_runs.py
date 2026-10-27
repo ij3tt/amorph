@@ -87,9 +87,17 @@ def test_a_folder_of_runs_opens_everywhere(window, qtbot, fake_run,
     assert abs(run.estimate["quantiles"][2] - d["q50"]) < 1E-9
     assert screen.fraction_value.text() == S.FRACTION_NOW.format(d["q50"])
 
-    # Opened again: nothing new
+    # Opened again: nothing new, no error, and their rows on «Сравнение»
+    # are back after «Очистить»
+    errors = list(window.errors)
+    compare.clear()
     window.open_paths([str(top)])
     assert len(screen.rows) == 2
+    assert window.errors == errors
+    assert sorted(r["archive"] for r in compare.model.rows) == \
+        sorted(r.archive for r in screen.rows)
+    window.open_paths([str(top)])
+    assert compare.model.rowCount() == 2
 
 
 def test_no_runs_in_a_folder(window, tmp_path):

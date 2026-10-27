@@ -38,6 +38,9 @@ Pre-releases (v1.1.0-rc.1, ...) come before the release, on GitHub only.
   with two panels (`doc/figures/xrd_seeds.tex`), exported as the tables of
   PGFPlots, a folder for LaTeX, PDF and SVG built with the LaTeX
   installed, or PNG. «Добавить папку…» adds every archive of a folder.
+  Every run shown on «Результаты» has a row on «Сравнение», once: a run
+  done here (in 1.0.2 only the seeds of a batch of two or more came
+  there), opened from its folder, or an archive opened.
 - «Данные для PGFPlots…» on «Результаты» writes the tables of
   `export_pgf.py` for the run.
 - `doc/figures/xrd_fit.tex` also builds SVG: `latex` and `dvisvgm`.

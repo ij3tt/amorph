@@ -226,9 +226,12 @@ def test_stop_keeps_the_complete_saves(window, qtbot, fake_run, tmp_path):
     cards = digest.diagnostic_cards(run.results, stopped=True)
     assert (digest.AMBER, S.CARD_STOP_TITLE,
             S.CARD_STOP_BAD.format(30, 60)) in cards
-    # Shown so on «Результаты»
+    # Shown so on «Результаты», and on «Сравнение» though a single seed
     assert window.results_screen.stopped
     assert window.runs_screen.table.item(0, 2).text() == S.STATUS_INCOMPLETE
+    qtbot.waitUntil(lambda: [r["archive"] for r in
+                             window.compare_screen.model.rows]
+                    == [run.archive], timeout=10000)
 
 
 def test_closing_the_window_leaves_the_complete_saves(window, qtbot,

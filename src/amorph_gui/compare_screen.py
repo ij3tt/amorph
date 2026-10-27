@@ -65,6 +65,11 @@ PNG_SIZE = {"fit": (8.0, 5.3), "seeds": (11.0, 4.4)}
 PNG_DPI = 200
 
 
+def _key(path):
+    # One archive whatever the spelling of its path
+    return os.path.normcase(os.path.abspath(path))
+
+
 class ComparisonModel(QAbstractTableModel):
     """
     The rows of digest.comparison_row, one per archive.
@@ -254,6 +259,8 @@ class CompareScreen(Screen):
         super().__init__(S.SCREEN_COMPARE, parent)
         self.tasks = tasks
         self.pending = 0
+        # The archives being read for a row (_key)
+        self._reading = set()
         self.last_dir = None
         self._order = itertools.count()
         self.pooled = None
@@ -501,14 +508,28 @@ class CompareScreen(Screen):
             return
         self.add_archives(paths)
 
+    def has_archive(self, path):
+        """
+        Whether the archive at path has a row, or is being read for one.
+        """
+        key = _key(path)
+        return key in self._reading or any(
+            row["archive"] and _key(row["archive"]) == key
+            for row in self.model.rows)
+
     def add_archives(self, paths):
         """
-        Read archives in worker threads and add a row for each.
+        Read archives in worker threads and add a row for each that has
+        none.
         """
         self.errors.hide()
         for path in paths:
             path = os.path.abspath(path)
             self.last_dir = os.path.dirname(path)
+            if self.has_archive(path):
+                continue
+            key = _key(path)
+            self._reading.add(key)
             self.pending += 1
             order = next(self._order)
 
@@ -516,23 +537,33 @@ class CompareScreen(Screen):
                 return order, digest.comparison_row(amorph_archive.read(path),
                                                     path)
 
-            def failed(error, path=path):
+            def done(result, key=key):
+                self._reading.discard(key)
+                self._loaded(result)
+
+            def failed(error, path=path, key=key):
+                self._reading.discard(key)
                 self.pending -= 1
                 self.errors.setText(S.CANNOT_READ_ARCHIVE.format(path)
                                     + ": " + error)
                 self.errors.show()
 
-            self.tasks.run(job, self._loaded, failed)
+            self.tasks.run(job, done, failed)
 
     def add_results(self, results, path):
         """
-        A row for results already read, such as those of a run opened from
-        its folder; path is its archive.
+        A row for results already read: those of a run done here or opened
+        from its folder, or of an archive opened on «Результаты»; path is
+        their archive. Nothing if it already has one. Returns whether a row
+        was added.
         """
+        if path and self.has_archive(path):
+            return False
         self.model.add(digest.comparison_row(results, path),
                        next(self._order))
         self.view.resizeColumnsToContents()
         self.view.horizontalHeader().resizeSection(INTERVAL_COLUMN, 180)
+        return True
 
     def _loaded(self, result):
         self.pending -= 1

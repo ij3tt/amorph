@@ -80,6 +80,19 @@ def test_every_screen_opens_an_archive(window, qtbot, archives, monkeypatch):
         assert window.stack.currentIndex() == RESULTS
 
 
+def test_an_archive_opened_is_compared_once(window, qtbot, archives):
+    path = os.path.abspath(archives["seed5"])
+    open_archive(window, qtbot, path)
+    compare = window.compare_screen
+    assert [r["archive"] for r in compare.model.rows] == [path]
+    # Opened again, or added on «Сравнение»: still one row
+    window.results_screen.archive = None
+    open_archive(window, qtbot, path)
+    compare.add_archives([path])
+    assert compare.pending == 0
+    assert compare.model.rowCount() == 1
+
+
 def test_an_unreadable_archive_is_reported(window, qtbot, tmp_path):
     path = str(tmp_path / "broken.amorph")
     with open(path, "wb") as f:

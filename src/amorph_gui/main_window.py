@@ -198,7 +198,8 @@ class MainWindow(QMainWindow):
 
     def open_archive(self, path):
         """
-        Read an archive in a worker thread and show it on «Результаты».
+        Read an archive in a worker thread and show it on «Результаты», and
+        on «Сравнение» if it is not there yet.
         """
         path = os.path.abspath(path)
         self.last_archive_dir = os.path.dirname(path)
@@ -207,6 +208,7 @@ class MainWindow(QMainWindow):
         def done(results):
             self.results_screen.show_results(
                 results, S.SOURCE_ARCHIVE.format(path), archive=path)
+            self.compare_screen.add_results(results, path)
             self.show_screen(RESULTS)
             self.status(S.ARCHIVE_OPENED.format(path))
 
@@ -247,19 +249,30 @@ class MainWindow(QMainWindow):
         Open the run folders among paths and in their subfolders, each as a
         run on «Прогоны» with its output and its estimate, its results on
         «Результаты» and a row on «Сравнение». Its results come from its
-        archive, or from the post-processing (runfiles.open_run). Folders
-        already shown are left out. Returns the runs.
+        archive, or from the post-processing (runfiles.open_run). A folder
+        already shown is not read again, but gets its row on «Сравнение»
+        back if it was removed. Returns the runs opened.
         """
-        folders = []
+        found = []
         for path in paths:
-            folders += runfiles.run_folders(path)
-        shown = {os.path.normcase(r.folder) for r in self.runs_screen.rows}
-        folders = [f for f in dict.fromkeys(folders)
-                   if os.path.normcase(f) not in shown]
-        if not folders:
+            found += runfiles.run_folders(path)
+        found = list(dict.fromkeys(found))
+        if not found:
             if not quiet:
                 self.error(S.OPEN_RUNS, S.NO_RUN_FOLDERS.format(
                     ", ".join(paths)))
+            return []
+        shown = {os.path.normcase(r.folder): r for r in self.runs_screen.rows}
+        again = [shown[os.path.normcase(f)] for f in found
+                 if os.path.normcase(f) in shown]
+        for run in again:
+            if run.results is not None:
+                self.compare_screen.add_results(run.results, run.archive)
+        folders = [f for f in found if os.path.normcase(f) not in shown]
+        if not folders:
+            self.runs_screen.show_run(again[0])
+            self.show_screen(RUNS)
+            self.status(S.RUNS_ALREADY_OPEN.format(len(again)))
             return []
         self.last_runs_dir = os.path.dirname(folders[0])
         runs = []
@@ -371,24 +384,23 @@ class MainWindow(QMainWindow):
         self.results_screen.show_results(
             run.results, S.SOURCE_RUN.format(run.folder), archive=run.archive,
             stopped=run.stopped)
+        self.compare_screen.add_results(run.results, run.archive)
         self.show_screen(RESULTS)
 
     def _postprocessed(self, run):
+        # Every run on «Результаты» and on «Сравнение», a single seed too
         if run.results is None:
             self.status(run.error or "")
             return
         self.results_screen.show_results(
             run.results, S.SOURCE_RUN.format(run.folder), archive=run.archive,
             stopped=run.stopped)
+        self.compare_screen.add_results(run.results, run.archive)
         self.status(S.POSTPROCESSED.format(run.name, run.archive))
 
     def _batch_finished(self, runs):
-        # The seeds of one batch side by side
-        archives = [r.archive for r in runs if r.archive]
-        if len(archives) > 1:
-            self.compare_screen.add_archives(archives)
         self.status(S.QUEUE_DONE)
-        if self.stack.currentIndex() == RUNS and archives:
+        if self.stack.currentIndex() == RUNS and any(r.archive for r in runs):
             self.show_screen(RESULTS)
 
     def closeEvent(self, event):

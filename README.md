@@ -291,9 +291,11 @@ It has four screens, listed on the left:
   the posterior samples (CSV) and the tables of PGFPlots that
   `export_pgf.py` writes («Данные для PGFPlots…», see "Drawing the fit
   figure with TikZ") save too.
-* «Сравнение»: a table of run archives, such as the seeds of a batch
-  (added when the batch ends), all the archives of a folder, or the
-  `run.amorph` files that the experiment and validate workflows upload.
+* «Сравнение»: a table of run archives, such as the seeds of a batch,
+  all the archives of a folder, or the `run.amorph` files that the
+  experiment and validate workflows upload. Every run shown on
+  «Результаты» has a row here, once: a run done here (a single seed too),
+  a run opened from its folder, an archive opened.
   Per archive: the data file, the settings, the seed, the options file of
   the sampler and its saves, the effective sample size, log(Z) less the
   best log(Z) of the runs of the same data and settings, the median of the
