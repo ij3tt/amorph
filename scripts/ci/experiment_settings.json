@@ -1,13 +1,7 @@
 {
   "setting": [
-    {"id": "w20-50", "narrow": 500, "wide": 100, "nu": "[1.0, 100.0]", "control_points": "[20.0, 50.0]",
-     "datasets": ["N3RAW_20-50.txt", "G30RAW_20-50.txt"]},
-    {"id": "w20-50-cp25-45", "narrow": 500, "wide": 100, "nu": "[1.0, 100.0]", "control_points": "[25.0, 45.0]",
-     "datasets": ["N3RAW_20-50.txt", "G30RAW_20-50.txt"]},
-    {"id": "w15-70", "narrow": 1000, "wide": 200, "nu": "[1.0, 100.0]", "control_points": "[20.0, 50.0]",
-     "config": "left_edge=0.2 right_edge=0.95",
-     "datasets": ["N3RAW_15-70.txt", "G30RAW_15-70.txt"]}
+    {"id": "synthetic", "narrow": 500, "wide": 100, "nu": "[1.0, 100.0]", "control_points": "[10.0, 40.0]",
+     "datasets": ["synthetic_amorphous.dat", "synthetic_crystalline.dat"]}
   ],
-  "fraction_range": "26 46",
-  "replicate": [1, 2]
+  "replicate": [1, 2, 3, 4]
 }

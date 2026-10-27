@@ -15,6 +15,7 @@ Makefile text eol=lf
 
 # Data and documents are binary-ish: leave them alone.
 *.txt binary
+*.dat binary
 *.pdf binary
 *.tif binary
 *.jpg binary
