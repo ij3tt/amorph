@@ -16,7 +16,7 @@ from matplotlib.figure import Figure
 from PySide6.QtCore import QPoint, QPointF, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import (QFileDialog, QFrame, QHBoxLayout, QLabel,
-                               QMessageBox, QPushButton, QSizePolicy,
+                               QMenu, QMessageBox, QPushButton, QSizePolicy,
                                QToolButton, QVBoxLayout, QWidget)
 
 import amorph_archive
@@ -134,17 +134,21 @@ class Screen(QWidget):
         self.header_text.setText(text or "")
         self.header_text.setToolTip(text or "")
 
-    def add_button(self, text, slot, tip=None, kind=None):
+    def add_button(self, text, slot, tip=None, kind=None, menu=None):
         """
         A button of the screen in the header, before «Открыть архив…».
-        kind "primary" or "danger" gives it the look of the design.
+        kind "primary" or "danger" gives it the look of the design; a
+        button with a menu has no slot of its own.
         """
         button = QPushButton(text)
         if kind:
             button.setObjectName(kind)
         if tip:
             button.setToolTip(tooltip(tip))
-        button.clicked.connect(slot)
+        if slot is not None:
+            button.clicked.connect(slot)
+        if menu is not None:
+            button.setMenu(menu)
         self.header.insertWidget(self.header.count() - 1, button)
         return button
 
@@ -232,6 +236,17 @@ class HelpButton(QToolButton):
         self.popup = HelpPopup(self.topic, self)
         self.popup.show_under(self)
         return self.popup
+
+
+def language_menu(parent, choose):
+    """
+    The menu of the languages of the report for LaTeX: choose(language)
+    with "ru" or "en".
+    """
+    menu = QMenu(parent)
+    for language, text in S.REPORT_LANGUAGES:
+        menu.addAction(text, lambda language=language: choose(language))
+    return menu
 
 
 def title_row(title, help=None):

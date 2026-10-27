@@ -322,8 +322,9 @@ It has four screens, listed on the left:
   report.tex`: the result and the line for a paper, the table of the
   runs with their checks, the data and the settings, the diagnostic
   cards of each seed, both figures with their tables in `pgf/`, and how
-  to read the numbers; it needs pgfplots, babel with Russian and the
-  cm-super fonts. «Отчёт LaTeX…» on «Результаты» does the same for one
+  to read the numbers, in Russian or in English as chosen in the menu of
+  the button; it needs pgfplots, babel with Russian and the cm-super
+  fonts. «Отчёт LaTeX…» on «Результаты» does the same for one
   run. The table exports as CSV and Markdown.
 
 «Открыть архив…», on every screen, shows an archive on «Результаты».

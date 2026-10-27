@@ -40,7 +40,7 @@ from amorph_gui import digest, figures, report
 from amorph_gui import strings as S
 from amorph_gui import theme
 from amorph_gui.widgets import Banner, HelpButton, Screen, card, \
-    paint_interval, styled_label, title_row, tooltip
+    language_menu, paint_interval, styled_label, title_row, tooltip
 
 COLUMNS = [S.COLUMN_ARCHIVE, S.COLUMN_DATA, S.COLUMN_SETTINGS, S.COLUMN_SEED,
            S.COLUMN_SAMPLER, S.COLUMN_ESS, S.COLUMN_LOG_Z, S.COLUMN_FRACTION,
@@ -452,8 +452,8 @@ class CompareScreen(Screen):
                  self.export_data_dialog, "primary"),
                 ("tex", S.EXPORT_TEX, S.EXPORT_TEX_TIP,
                  self.export_tex_dialog, None),
-                ("report", S.EXPORT_REPORT, S.EXPORT_REPORT_TIP,
-                 self.export_report_dialog, None),
+                ("report", S.EXPORT_REPORT, S.EXPORT_REPORT_TIP, None,
+                 None),
                 ("pdf", S.EXPORT_PDF, None,
                  lambda: self.export_file_dialog("pdf"), None),
                 ("svg", S.EXPORT_SVG, None,
@@ -465,9 +465,13 @@ class CompareScreen(Screen):
                 button.setObjectName(kind)
             if tip:
                 button.setToolTip(tooltip(tip))
-            button.clicked.connect(slot)
+            if slot is not None:
+                button.clicked.connect(slot)
             buttons.addWidget(button)
             self.export_buttons[key] = button
+        # The report in the language chosen in its menu
+        self.export_buttons["report"].setMenu(
+            language_menu(self, self.export_report_dialog))
         buttons.addStretch(1)
         layout.addLayout(buttons)
         missing = [t for t in amorph_tex.TOOLS if t not in self.latex]
@@ -712,19 +716,20 @@ class CompareScreen(Screen):
 
         self._export(job)
 
-    def export_report_dialog(self):
+    def export_report_dialog(self, language):
         folder = self.choose_folder(S.CHOOSE_REPORT_FOLDER)
         if folder:
-            self.export_report(folder)
+            self.export_report(folder, language)
 
-    def export_report(self, folder):
+    def export_report(self, folder, language="ru"):
         """
-        The report of the ticked runs for LaTeX (report.write_report):
-        report.tex with both figures and their tables, to build with
-        pdflatex.
+        The report of the ticked runs for LaTeX (report.write_report), in
+        language ("ru" or "en"): report.tex with both figures and their
+        tables, to build with pdflatex.
         """
         rows, title = list(self.model.rows), self.figure_title()
-        self._export(lambda: report.write_report(rows, folder, title))
+        self._export(lambda: report.write_report(rows, folder, title,
+                                                 language=language))
 
     def export_file_dialog(self, kind):
         stem = os.path.splitext(amorph_tex.FIGURES[self.figure_style][0])[0]

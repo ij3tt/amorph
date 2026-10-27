@@ -1,12 +1,14 @@
 """
 The report for LaTeX (src/amorph_gui/report.py): its folder and its text
-for one run and for two seeds, on the fake run of test_results.py and a
-shifted copy of it, and its build where pdflatex is installed. Run with
+for one run and for two seeds, in Russian and in English, on the fake run
+of test_results.py and a shifted copy of it, and its build where pdflatex
+is installed. Run with
 pytest from the repository root:
     python -m pytest tests
 """
 
 import os
+import re
 import subprocess
 import sys
 
@@ -19,7 +21,7 @@ sys.path.insert(0, os.path.join(ROOT, "tests"))
 import amorph_results
 import amorph_tex
 
-from amorph_gui import digest, report
+from amorph_gui import digest, report, strings_en
 from amorph_gui import strings as S
 from test_results import make_full_run
 from test_seeds import shifted
@@ -93,6 +95,30 @@ def test_the_report_of_one_run(results, tmp_path):
         q95=d["q95"])) in text
 
 
+def test_the_report_in_english(results, tmp_path):
+    rows = rows_of(results, shifted(results, 0.05))
+    path = report.write_report(rows, str(tmp_path / "en"), language="en")
+    with open(path, encoding="utf-8") as f:
+        text = f.read()
+    # Every text in English: the report, the cards, the checks, the notes
+    # and the line for a paper
+    assert not re.search("[А-Яа-яЁё]", text)
+    assert r"\usepackage[russian,english]{babel}" in text
+    assert "2 seeds together" in text
+    assert report.latex(digest.check_text(rows[0], strings_en)) in text
+    _, notes, paper = digest.joint_report(rows, strings_en)
+    assert paper.endswith(strings_en.PAPER_SEEDS.format(
+        2, "seeds", digest.joint_report(rows)[0]["spread"]))
+    assert report.latex(paper) in text
+    for name, _ in strings_en.REPORT_NOTE_ITEMS:
+        assert report.latex(name) in text
+    # The texts of the two languages have the same names (the Russian
+    # notes are the tooltips of helptext)
+    for name in dir(strings_en):
+        if name.isupper() and name != "REPORT_NOTE_ITEMS":
+            assert hasattr(S, name), name
+
+
 def test_nothing_to_report(results, tmp_path):
     rows = rows_of(results)
     rows[0]["chosen"] = False
@@ -102,9 +128,10 @@ def test_nothing_to_report(results, tmp_path):
 
 @pytest.mark.skipif("pdflatex" not in amorph_tex.find_latex(),
                     reason="LaTeX is not installed")
-def test_pdflatex_builds_the_report(results, tmp_path):
+@pytest.mark.parametrize("language", ["ru", "en"])
+def test_pdflatex_builds_the_report(results, tmp_path, language):
     path = report.write_report(rows_of(results, shifted(results, 0.05)),
-                               str(tmp_path / "report"))
+                               str(tmp_path / language), language=language)
     folder = os.path.dirname(path)
     run = subprocess.run([amorph_tex.find_latex()["pdflatex"],
                           "-interaction=nonstopmode", "-halt-on-error",

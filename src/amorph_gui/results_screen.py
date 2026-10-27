@@ -27,8 +27,8 @@ from amorph_gui import digest, helptext, report
 from amorph_gui import strings as S
 from amorph_gui import theme
 from amorph_gui.widgets import (Banner, Card, FigureView, HelpButton,
-                                IntervalBar, Screen, card, styled_label,
-                                tooltip)
+                                IntervalBar, Screen, card, language_menu,
+                                styled_label, tooltip)
 
 # The figures of each tab, by their names in amorph_results.FIGURES
 MODEL_FIGURES = ["model", "residuals"]
@@ -85,8 +85,8 @@ class ResultsScreen(Screen):
                             S.SAVE_FIGURES_TIP),
             self.add_button(S.EXPORT_DATA, self.save_pgf_data,
                             S.EXPORT_DATA_ONE_TIP),
-            self.add_button(S.EXPORT_REPORT, self.save_report,
-                            S.EXPORT_REPORT_TIP)]
+            self.add_button(S.EXPORT_REPORT, None, S.EXPORT_REPORT_TIP,
+                            menu=language_menu(self, self.save_report))]
         for button in self.export_buttons:
             button.setEnabled(False)
 
@@ -463,23 +463,24 @@ class ResultsScreen(Screen):
 
         self._export(job)
 
-    def save_report(self):
+    def save_report(self, language):
         if self.results is None:
             return
         folder = QFileDialog.getExistingDirectory(self,
                                                   S.CHOOSE_REPORT_FOLDER)
         if folder:
-            self.write_report(folder)
+            self.write_report(folder, language)
 
-    def write_report(self, folder):
+    def write_report(self, folder, language="ru"):
         """
-        The report of the run for LaTeX (report.write_report) in folder:
-        report.tex with the figures and their tables, to build with
-        pdflatex.
+        The report of the run for LaTeX (report.write_report) in folder,
+        in language ("ru" or "en"): report.tex with the figures and their
+        tables, to build with pdflatex.
         """
         rows = report.results_rows(self.results, self.archive)
         title = str(self.results.info.get("data_file", "amorph"))
-        self._export(lambda: report.write_report(rows, folder, title))
+        self._export(lambda: report.write_report(rows, folder, title,
+                                                 language=language))
 
     def _export(self, job, done_text=S.SAVED):
         self.tasks.run(job, lambda path: self.message.emit(

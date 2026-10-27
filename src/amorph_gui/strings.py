@@ -586,6 +586,20 @@ PAPER_SEEDS = "{0} {1}, разброс медиан {2:.3f}"
 PAPER_ONE_SEED = "1 сид"
 # 1 сид, 2 сида, 5 сидов
 SEED_FORMS = ("сид", "сида", "сидов")
+
+
+def seed_word(n):
+    """
+    "сид", "сида" or "сидов" after the number n.
+    """
+    if n % 10 == 1 and n % 100 != 11:
+        return SEED_FORMS[0]
+    if n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14):
+        return SEED_FORMS[1]
+    return SEED_FORMS[2]
+
+
+
 COPY = "Скопировать"
 COPIED = "Скопировано"
 # The figure of the chosen runs
@@ -617,9 +631,12 @@ EXPORT_TEX_TIP = ("Папка рисунка: .tex, таблицы в pgf/ и bu
                   "build.sh, которые собирают PDF и SVG")
 EXPORT_REPORT = "Отчёт LaTeX…"
 EXPORT_REPORT_TIP = ("Папка с report.tex — отчёт целиком: результат, прогоны, "
-                     "настройки, диагностика и оба рисунка с их таблицами. "
-                     "Соберите его сами: pdflatex report.tex")
+                     "настройки, диагностика и оба рисунка с их таблицами, "
+                     "по-русски или по-английски. Соберите его сами: "
+                     "pdflatex report.tex")
 CHOOSE_REPORT_FOLDER = "Папка для отчёта LaTeX"
+# The languages of the report, as report.LANGUAGES names them
+REPORT_LANGUAGES = [("ru", "по-русски"), ("en", "in English")]
 EXPORT_PDF = "PDF…"
 EXPORT_SVG = "SVG…"
 EXPORT_PNG = "PNG…"
