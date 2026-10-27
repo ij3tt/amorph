@@ -140,7 +140,9 @@ samples, `G30RAW_amorph.txt` and `N3RAW_amorph.txt` (26–46°), that show
 the ambiguity described in "The shape of the crystalline peaks" below. The
 whole scans of these two samples (Cu Kα, 5–70°, step 0.02°) are
 `G30RAW.txt` and `N3RAW.txt`, and `*_20-50.txt` and `*_15-70.txt` are
-parts of them.
+parts of them. `synthetic_amorphous.dat` and `synthetic_crystalline.dat`
+are synthetic scans with a known fraction of 1 and of 0 (see "Synthetic
+scans" below).
 The program is set to run until
 10,000 saved parameter sets have been generated. Outputs may be viewed at any
 point, however, closing the program before reaching  10,000 will reduce the
@@ -560,6 +562,43 @@ What this shows, and what it does not:
   accuracy of the method nor the reproducibility of a measurement, which
   needs repeated measurements of the sample.
 
+Synthetic scans
+---------------
+
+On the standards the true ratio of intensities is not known exactly. Two
+synthetic scans have an exactly known one: `src/synthetic_amorphous.dat`, a
+halo alone (fraction 1), and `src/synthetic_crystalline.dat`, ten narrow
+peaks alone (fraction 0), over the same straight background, 10–40° with a
+step of 0.02° and Poisson counts. `scripts/make_synthetic_data.py` makes
+them. Their peaks have the shapes of the model and the halo lies within
+`left_edge` and `right_edge`, so that the model can describe each scan
+exactly: they are the best case for AMORPH, and real scans can only be
+harder. With ν ≥ 1, the control points at the edges of the data, the caps
+500/100 and four seeds of 10000 saves (pull request #24):
+
+| true fraction | median | mean | remarks |
+| --- | --- | --- | --- |
+| 1 | 1.000 | 0.998 – 0.999 | all the weight above 0.99; the halo recovered: centre of mass 24.95° and half-width 4.12°, against 24.98° and 4.10° |
+| 0 | 0.000 | 0.016 – 0.038 | 95% quantile 0.09–0.24, up to 2% of the weight at 0.65–0.75; 10–11 narrow peaks against 10, ν 2.86 against 3, no weight at the cap |
+
+log(Z) differed by 0.3 nats between the seeds on the amorphous scan and by
+1.3 on the crystalline one. What this shows:
+
+* At 1 the inference is unbiased. The −7 points of the 90% standard
+  therefore come from the sample or the instrument (shapes of the peaks and
+  the halo that the model does not describe exactly, the background), or
+  from a ratio of intensities of that standard other than 0.9, not from
+  the inference itself.
+* At 0 the median is unbiased, but the posterior has a tail to the right:
+  a broad wide component (a half-width of about 8.5° where the fraction is
+  0.2 or more) takes the place of part of the background, which then
+  counts as amorphous. The mean of a fully crystalline scan is therefore
+  0.02–0.04, about the +3 points of the 0% standard: that much may come
+  from the method alone, not from glass in the standard.
+* The pile-up at the cap of narrow peaks on the 0% standard does not happen
+  when the peaks have the shape of the model: it comes from the real peaks
+  (Kα₂ doublets, asymmetric profiles, many weak peaks).
+
 Diagnosis and reporting
 -----------------------
 
@@ -572,7 +611,9 @@ before quoting a fraction:
   sample size means the run is not settled: rerun with a different `seed`.
 * Near 0% or 100% the sampler sometimes locks onto exactly 0 or 1; read
   fractions below ~0.05 as "approximately zero", and rerun with a second
-  seed for fractions above ~0.9.
+  seed for fractions above ~0.9. Near 0 the posterior has a tail to the
+  right even without any glass (see "Synthetic scans"): quote the median,
+  not the mean.
 * A run that the time budget stopped before its planned number of saves is
   preliminary.
 
