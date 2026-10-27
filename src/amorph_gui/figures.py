@@ -7,6 +7,8 @@ without LaTeX, and saved as PNG. Nothing here needs Qt.
 
 import numpy as np
 
+import export_pgf
+
 from amorph_gui import theme
 
 # The colours of doc/figures/xrd_fit_body.tex
@@ -54,8 +56,13 @@ def draw_fit(fig, pooled, title):
     ax.set_xlabel("$2\\theta$, °")
     ax.set_ylabel("Intensity, arb. un.")
     ax.set_title(title, fontweight="bold")
-    ax.text(0.025, 0.96, "Amorphous = {0:.1f}%".format(100.0 * pooled["mean"]),
-            transform=ax.transAxes, va="top")
+    # The median with its 50% interval, as in xrd_fit.tex
+    q = pooled["quantiles"]
+    ax.text(0.025, 0.96, "Amorphous = " + export_pgf.fraction_label(
+        100.0 * q[2], 100.0 * q[1], 100.0 * q[3], percent="%"),
+        transform=ax.transAxes, va="top")
+    ax.text(0.025, 0.86, "median and 50% interval", transform=ax.transAxes,
+            va="top", fontsize="small")
     handles, labels = ax.get_legend_handles_labels()
     order = [4, 0, 1, 2, 3]
     ax.legend([handles[i] for i in order], [labels[i] for i in order],

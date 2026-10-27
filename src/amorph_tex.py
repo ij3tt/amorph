@@ -82,7 +82,8 @@ def write_tables(pooled, out, title):
          "background": c["bg"]},
         {"model": ex["model_curve"], "amorph": ex["wide"],
          "xtal": ex["narrow"]},
-        export_pgf.latex_text(title), 100.0 * pooled["mean"])
+        export_pgf.latex_text(title),
+        [100.0 * pooled["quantiles"][i] for i in (2, 1, 3)])
 
     halo = c["bg"] + c["wide"]
     lo, hi = pooled["band"]

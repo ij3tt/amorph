@@ -878,7 +878,7 @@ bash scripts/make_xrd_figure.sh
 | `xrd_samples_amorph.dat` | то же для аморфной компоненты |
 | `xrd_samples_xtal.dat` | то же для кристаллических пиков |
 | `xrd_samples.tex` | команды `\addplot` для бледных кривых выборок |
-| `xrd_meta.tex` | макросы LaTeX: пределы осей, заголовок, доля аморфной фазы |
+| `xrd_meta.tex` | макросы LaTeX: пределы осей, заголовок, доля аморфной фазы — медиана с 50% интервалом (`\xrdamorph`, вида $62.1^{+3.0}_{-3.9}$ %; числа — в `\xrdamorphmedian`, `\xrdamorphlo`, `\xrdamorphhi`) |
 
 Первая строка каждого `.dat`-файла содержит имена столбцов без символа
 комментария, например `x model amorph xtal background`. Поэтому эти таблицы

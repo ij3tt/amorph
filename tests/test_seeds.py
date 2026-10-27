@@ -21,6 +21,7 @@ sys.path.insert(0, os.path.join(ROOT, "tests"))
 import amorph_results
 import amorph_seeds
 import amorph_tex
+import export_pgf
 from test_results import make_full_run
 
 QUANTILES = ["q05", "q25", "q50", "q75", "q95"]
@@ -139,8 +140,13 @@ def test_tables_of_both_figures(results, tmp_path):
                                rtol=1E-5)
     meta = read_macros(os.path.join(out, "xrd_meta.tex"))
     assert meta["xrdtitle"] == "demo\\_data.txt"
-    assert float(meta["xrdamorph"].rstrip("\\%")) == pytest.approx(
-        100.0 * pooled["mean"], abs=0.051)
+    # The median with its 50% interval, as the report gives it
+    q = [100.0 * v for v in pooled["quantiles"]]
+    assert meta["xrdamorphmedian"] == "{0:.1f}".format(q[2])
+    assert meta["xrdamorphlo"] == "{0:.1f}".format(q[1])
+    assert meta["xrdamorphhi"] == "{0:.1f}".format(q[3])
+    assert meta["xrdamorph"] == export_pgf.fraction_label(q[2], q[1], q[3])
+    assert meta["xrdamorphnote"] == "median and 50\\% interval"
     assert meta["xrdnsamples"] == str(len(pooled["examples"]["model_curve"]))
 
     # The tables of the two-panel figure

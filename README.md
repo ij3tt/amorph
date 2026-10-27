@@ -854,7 +854,7 @@ The tables that are written into `doc/figures/pgf/` are
 | `xrd_samples_amorph.dat` | the same for the amorphous component |
 | `xrd_samples_xtal.dat` | the same for the crystalline peaks |
 | `xrd_samples.tex` | the `\addplot` commands for the faint sample curves |
-| `xrd_meta.tex` | LaTeX macros: axis limits, title, amorphous fraction |
+| `xrd_meta.tex` | LaTeX macros: axis limits, title, amorphous fraction: the median with its 50% interval (`\xrdamorph`, as $62.1^{+3.0}_{-3.9}$ %; the numbers in `\xrdamorphmedian`, `\xrdamorphlo`, `\xrdamorphhi`) |
 
 The first line of every `.dat` file contains column names without a comment
 prefix, for example `x model amorph xtal background`. The tables can therefore

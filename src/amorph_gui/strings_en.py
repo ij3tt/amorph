@@ -113,8 +113,8 @@ REPORT_FIGURES = "Figures"
 REPORT_FIGURE_FIT = (
     "The scan with the posterior means of the model, the amorphous part, the "
     "crystalline peaks and the background; the faint lines are posterior "
-    "samples, as many from each seed. “Amorphous” in the figure is the mean "
-    "of the fraction, the text gives the median.")
+    "samples, as many from each seed. “Amorphous” in the figure is the "
+    "median of the fraction with its 50% interval, as in the text.")
 REPORT_FIGURE_SEEDS = (
     "(a) The scan, the background, the amorphous halo, the crystalline peaks "
     "and the model with its 90% band; dashed, the halo of each seed. (b) The "

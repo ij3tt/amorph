@@ -108,8 +108,16 @@
     table[x index=0, y index=1] {\xrddatadir xrd_data.dat};
 
 % --- annotation -------------------------------------------------------------
+% The median of the fraction with its 50% interval, and what it is; tables
+% of an older export_pgf.py give the mean, without \xrdamorphnote
+\ifx\xrdamorphnote\undefined
 \node[anchor=north west, font=\Large] at (rel axis cs:0.025,0.975)
     {Amorphous = \xrdamorph};
+\else
+\node[anchor=north west, font=\Large, align=left]
+    at (rel axis cs:0.025,0.975)
+    {Amorphous = \xrdamorph\\[2pt]{\normalsize\xrdamorphnote}};
+\fi
 
 \end{axis}
 \end{tikzpicture}

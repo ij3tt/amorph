@@ -270,12 +270,33 @@ def test_export_pgf_reports_the_fraction_of_display(tmp_path, monkeypatch):
     with open(os.path.join("pgf", "xrd_samples_model.dat")) as f:
         assert f.readline() == "x sample1 sample2\n"
 
+    # The figure gives the median of the fraction with its 50% interval
     with open(os.path.join("pgf", "xrd_meta.tex")) as f:
         meta = f.read()
-    match = re.search(r"\\xrdamorph\{([0-9.]+)\\%\}", meta)
-    assert match is not None
-    assert float(match.group(1)) == pytest.approx(100.0 * fraction.mean(),
-                                                  abs=0.051)
+    for name, q in (("median", 50.0), ("lo", 25.0), ("hi", 75.0)):
+        match = re.search(r"\\xrdamorph" + name + r"\{([0-9.]+)\}", meta)
+        assert match is not None, name
+        assert float(match.group(1)) == pytest.approx(
+            np.percentile(100.0 * fraction, q), abs=0.051)
+    assert "\\def\\xrdamorph{$" in meta
+
+
+def test_the_fraction_on_the_figure_stays_within_0_and_100():
+    # Not symmetric, and near 100% within it, where 98 +- 10 would not be
+    assert export_pgf.fraction_label(62.1434, 58.2101, 65.1488) == \
+        r"$62.1^{+3.0}_{-3.9}$\,\%"
+    assert export_pgf.fraction_label(98.03, 93.0, 99.52) == \
+        r"$98.0^{+1.5}_{-5.0}$\,\%"
+    fractions = np.array([0.6, 0.85, 0.93, 0.97, 0.98, 0.99, 0.995, 1.0])
+    x = np.linspace(0.0, 1.0, 11)
+    wide = np.outer(fractions, np.ones(x.size))
+    narrow = np.outer(1.0 - fractions, np.ones(x.size))
+    median, lo, hi = export_pgf.fraction_quantiles(wide, narrow, x)
+    assert lo < median < hi <= 100.0
+    assert median == pytest.approx(100.0 * np.median(fractions))
+    # Undefined without either component, not 0%
+    assert all(np.isnan(export_pgf.fraction_quantiles(
+        np.zeros((2, 5)), np.zeros((2, 5)))))
 
 
 def test_export_pgf_refuses_an_undefined_fraction(tmp_path, monkeypatch):

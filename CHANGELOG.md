@@ -71,6 +71,18 @@ Pre-releases (v1.1.0-rc.1, ...) come before the release, on GitHub only.
   system checks its files, and without a window the program was started
   again and again. The README says so too.
 
+### Changed
+
+- The fraction on the figure of `doc/figures/xrd_fit.tex`, and on its
+  preview in the GUI, is the median with its 50% interval, as
+  $62.1^{+3.0}_{-3.9}$ %: the numbers that the GUI and the line for a
+  paper give. It was the mean: 61.4% where the median is 62.1%, as the
+  distribution has a longer tail towards lower fractions. The interval
+  is not symmetric and stays within 0-100%: near 100% it reads
+  $98.0^{+1.5}_{-5.0}$, not 98 ± 10. `export_pgf.py` writes it in
+  `\xrdamorph`, its numbers in `\xrdamorphmedian`, `\xrdamorphlo` and
+  `\xrdamorphhi`; tables of an older `export_pgf.py` still show the mean.
+
 ### Fixed
 
 - The axes of the plots of the GUI no longer scale numbers with an SI
