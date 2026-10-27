@@ -76,28 +76,32 @@ def num_saves(results):
     return None
 
 
-def diagnostic_cards(results, stopped=False):
+def diagnostic_cards(results, stopped=False, lang=S):
     """
     The cards of the screen «Итог»: (RED, AMBER or OK, title, text). Red:
     over 5% of the posterior weight has a fraction below 0.2. Amber: over
     5% of the weight at the cap of narrow peaks; control points outside the
     data; a run stopped before its planned number of saves (stopped: the
     GUI stopped it). Last, the effective sample size: red below ESS_BAD,
-    amber below ESS_LOW.
+    amber below ESS_LOW. lang is the module of the texts: strings, or
+    strings_en for a report in English.
     """
     cards = []
     d = results.diagnosis
     if d is not None:
         w = d["weight_fraction_below_0.2"]
         cards.append((RED if w > WEIGHT_WARNING else OK,
-                      S.CARD_LOW_TITLE.format(w),
-                      S.CARD_LOW_BAD if w > WEIGHT_WARNING else S.CARD_LOW_OK))
+                      lang.CARD_LOW_TITLE.format(w),
+                      lang.CARD_LOW_BAD if w > WEIGHT_WARNING
+                      else lang.CARD_LOW_OK))
         w = d["weight_narrow_at_cap"]
         cap = d["max_num_narrow_peaks"]
         cards.append((AMBER if w > WEIGHT_WARNING else OK,
-                      S.CARD_CAP_TITLE.format(w),
-                      S.CARD_CAP_BAD.format(amorph_results.AT_CAP * cap, cap)
-                      if w > WEIGHT_WARNING else S.CARD_CAP_OK.format(cap)))
+                      lang.CARD_CAP_TITLE.format(w),
+                      lang.CARD_CAP_BAD.format(amorph_results.AT_CAP * cap,
+                                               cap)
+                      if w > WEIGHT_WARNING
+                      else lang.CARD_CAP_OK.format(cap)))
 
     cps = assumptions(results).get("control_points")
     info = results.info
@@ -105,29 +109,31 @@ def diagnostic_cards(results, stopped=False):
         a, b = float(cps[0]), float(cps[1])
         lo, hi = info["x_min"], info["x_max"]
         outside = a < lo or b > hi
-        cards.append((AMBER if outside else OK, S.CARD_CP_TITLE,
-                      (S.CARD_CP_BAD if outside else S.CARD_CP_OK).format(
-                          a, b, lo, hi)))
+        cards.append((AMBER if outside else OK, lang.CARD_CP_TITLE,
+                      (lang.CARD_CP_BAD if outside
+                       else lang.CARD_CP_OK).format(a, b, lo, hi)))
 
     saves = num_saves(results)
     planned = planned_saves(results)
     if saves is not None and (stopped or planned is not None):
         if planned == 0:
-            cards.append((AMBER, S.CARD_STOP_TITLE,
-                          S.CARD_STOP_UNLIMITED.format(saves)))
+            cards.append((AMBER, lang.CARD_STOP_TITLE,
+                          lang.CARD_STOP_UNLIMITED.format(saves)))
         elif stopped or saves < planned:
-            cards.append((AMBER, S.CARD_STOP_TITLE, S.CARD_STOP_BAD.format(
-                saves, planned if planned is not None else S.UNKNOWN)))
+            cards.append((AMBER, lang.CARD_STOP_TITLE,
+                          lang.CARD_STOP_BAD.format(
+                              saves, planned if planned is not None
+                              else lang.UNKNOWN)))
         else:
-            cards.append((OK, S.CARD_STOP_TITLE,
-                          S.CARD_STOP_OK.format(saves)))
+            cards.append((OK, lang.CARD_STOP_TITLE,
+                          lang.CARD_STOP_OK.format(saves)))
 
     if d is not None and "effective_sample_size" in d:
         ess = float(d["effective_sample_size"])
         level = RED if ess < ESS_BAD else AMBER if ess < ESS_LOW else OK
-        cards.append((level, S.CARD_ESS_TITLE.format(ess),
-                      {RED: S.CARD_ESS_BAD, AMBER: S.CARD_ESS_LOW,
-                       OK: S.CARD_ESS_OK}[level]))
+        cards.append((level, lang.CARD_ESS_TITLE.format(ess),
+                      {RED: lang.CARD_ESS_BAD, AMBER: lang.CARD_ESS_LOW,
+                       OK: lang.CARD_ESS_OK}[level]))
     return cards
 
 
@@ -262,7 +268,7 @@ def mark_log_z(rows):
             r["chosen"] = check_level(r) != RED
 
 
-def row_checks(row):
+def row_checks(row, lang=S):
     """
     The checks of a run of the comparison: (level, text) for each that
     fails. Red: log(Z) below the best of its group by LOG_Z_GAP or more
@@ -272,16 +278,16 @@ def row_checks(row):
     """
     checks = []
     if row.get("dlog_z") is not None and row["dlog_z"] <= -LOG_Z_GAP:
-        checks.append((RED, S.CHECK_LOG_Z.format(-row["dlog_z"])))
+        checks.append((RED, lang.CHECK_LOG_Z.format(-row["dlog_z"])))
     if row.get("below_0.2") is not None and row["below_0.2"] > WEIGHT_WARNING:
-        checks.append((RED, S.CHECK_LOW))
+        checks.append((RED, lang.CHECK_LOW))
     saves, planned = row.get("saves"), row.get("planned")
     if saves is not None and planned and saves < planned:
-        checks.append((AMBER, S.CHECK_STOPPED.format(saves, planned)))
+        checks.append((AMBER, lang.CHECK_STOPPED.format(saves, planned)))
     if row.get("ess") is not None and row["ess"] < ESS_LOW:
-        checks.append((AMBER, S.CHECK_ESS.format(row["ess"])))
+        checks.append((AMBER, lang.CHECK_ESS.format(row["ess"])))
     if row.get("at_cap") is not None and row["at_cap"] > WEIGHT_WARNING:
-        checks.append((AMBER, S.CHECK_CAP))
+        checks.append((AMBER, lang.CHECK_CAP))
     return checks
 
 
@@ -290,33 +296,31 @@ def check_level(row):
     return RED if RED in levels else AMBER if AMBER in levels else OK
 
 
-def check_text(row):
-    return "; ".join(text for _, text in row_checks(row)) or S.CHECK_OK
+def check_text(row, lang=S):
+    return "; ".join(text for _, text in row_checks(row, lang)) \
+        or lang.CHECK_OK
 
 
-def seeds_word(n):
+def seeds_word(n, lang=S):
     """
-    "сид", "сида" or "сидов" after the number n.
+    The word for n seeds after the number n, in the language of lang:
+    "сид", "сида" or "сидов"; "seed" or "seeds".
     """
-    if n % 10 == 1 and n % 100 != 11:
-        return S.SEED_FORMS[0]
-    if n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14):
-        return S.SEED_FORMS[1]
-    return S.SEED_FORMS[2]
+    return lang.seed_word(n)
 
 
-def joint_report(rows):
+def joint_report(rows, lang=S):
     """
     The chosen rows together (amorph_seeds.pool). Returns the pooled
     results (None if they cannot be pooled), the notes on them as
-    (level, text), and the line for a paper.
+    (level, text), and the line for a paper, in the language of lang.
     """
     chosen = [r for r in rows if r["chosen"] and r.get("results") is not None
               and r.get("q50") is not None]
     if not chosen:
-        return None, [("info", S.JOINT_NONE)], ""
+        return None, [("info", lang.JOINT_NONE)], ""
     if len({str(r["data_file"]) for r in chosen}) > 1:
-        return None, [(RED, S.JOINT_DATA)], ""
+        return None, [(RED, lang.JOINT_DATA)], ""
     try:
         pooled = amorph_seeds.pool([r["results"] for r in chosen])
     except ValueError as e:
@@ -326,24 +330,24 @@ def joint_report(rows):
     q = pooled["quantiles"]
     n = len(chosen)
     if len({r["settings"] for r in chosen}) > 1:
-        notes.append((AMBER, S.JOINT_SETTINGS))
+        notes.append((AMBER, lang.JOINT_SETTINGS))
     if n == 1:
-        notes.append((AMBER, S.JOINT_ONE))
+        notes.append((AMBER, lang.JOINT_ONE))
     else:
         width = q[3] - q[1]
         agree = pooled["spread"] <= SPREAD_AGREES * width
         notes.append((OK if agree else AMBER, (
-            S.JOINT_AGREE if agree else S.JOINT_DISAGREE).format(
+            lang.JOINT_AGREE if agree else lang.JOINT_DISAGREE).format(
                 pooled["spread"], width)))
     gaps = [-r["dlog_z"] for r in chosen if r.get("dlog_z") is not None
             and r["dlog_z"] <= -LOG_Z_GAP]
     if gaps:
-        notes.append((RED, S.JOINT_BAD_LOG_Z.format(max(gaps))))
+        notes.append((RED, lang.JOINT_BAD_LOG_Z.format(max(gaps))))
 
-    count = S.PAPER_ONE_SEED if n == 1 else S.PAPER_SEEDS.format(
-        n, seeds_word(n), pooled["spread"])
+    count = lang.PAPER_ONE_SEED if n == 1 else lang.PAPER_SEEDS.format(
+        n, seeds_word(n, lang), pooled["spread"])
     stem = os.path.splitext(str(chosen[0]["data_file"]))[0]
-    paper = S.PAPER_LINE.format(data=stem, q50=q[2], q25=q[1], q75=q[3],
+    paper = lang.PAPER_LINE.format(data=stem, q50=q[2], q25=q[1], q75=q[3],
                                 count=count)
     return pooled, notes, paper
 

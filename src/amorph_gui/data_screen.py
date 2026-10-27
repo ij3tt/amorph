@@ -19,7 +19,8 @@ import amorph_stats
 from amorph_gui import config
 from amorph_gui import strings as S
 from amorph_gui import theme
-from amorph_gui.widgets import Banner, Screen, card, styled_label
+from amorph_gui.widgets import (Banner, HelpButton, Screen, card,
+                                styled_label, tooltip)
 
 
 class NumberBox(QDoubleSpinBox):
@@ -48,17 +49,24 @@ def _count_box(low, high):
     return box
 
 
-def _fieldset(legend, cells, note=None):
+def _fieldset(legend, cells, note=None, help=None):
     """
     A group of fields as the design draws them: a small legend in capitals,
-    then the fields in two columns, each under its label. cells holds
-    (label, field, tip, key of config.yaml, columns it spans).
+    with the «?» of a topic of helptext if given, then the fields in two
+    columns, each under its label. cells holds (label, field, tip, key of
+    config.yaml, columns it spans).
     """
     box = QWidget()
     layout = QVBoxLayout(box)
     layout.setContentsMargins(0, 0, 0, 0)
     layout.setSpacing(6)
-    layout.addWidget(styled_label(legend, "legend", wrap=False))
+    heading = QHBoxLayout()
+    heading.setSpacing(6)
+    heading.addWidget(styled_label(legend, "legend", wrap=False))
+    if help is not None:
+        heading.addWidget(HelpButton(help), 0, Qt.AlignVCenter)
+    heading.addStretch(1)
+    layout.addLayout(heading)
     grid = QGridLayout()
     grid.setHorizontalSpacing(10)
     grid.setVerticalSpacing(8)
@@ -76,8 +84,8 @@ def _fieldset(legend, cells, note=None):
         parts = [t for t in (tip, S.CONFIG_KEY.format(key) if key else None)
                  if t]
         if parts:
-            text.setToolTip("\n".join(parts))
-            field.setToolTip("\n".join(parts))
+            text.setToolTip(tooltip(*parts))
+            field.setToolTip(tooltip(*parts))
         if column + span > 2:
             row, column = row + 1, 0
         grid.addWidget(cell, row, column, 1, span)
@@ -141,7 +149,7 @@ class DataScreen(Screen):
             ("box", theme.BAND_LINE, S.LEGEND_BAND)]))
         legend.setTextFormat(Qt.RichText)
         legend.setObjectName("muted")
-        plot_card, layout = card(S.PLOT_TITLE)
+        plot_card, layout = card(S.PLOT_TITLE, help="data_plot")
         layout.addWidget(legend)
         self.banner = Banner()
         layout.addWidget(self.banner)
@@ -192,7 +200,7 @@ class DataScreen(Screen):
         layout.addWidget(styled_label(S.PLOT_HINT, "muted"))
         outer.addWidget(plot_card, 1)
 
-        checks_card, layout = card(S.CHECKS_TITLE)
+        checks_card, layout = card(S.CHECKS_TITLE, help="checks")
         self.checks = QLabel()
         self.checks.setWordWrap(True)
         self.checks.setTextFormat(Qt.RichText)
@@ -221,7 +229,8 @@ class DataScreen(Screen):
             QRegularExpression("[0-9]{0,10}"), self.seed))
         self.num_seeds = _count_box(1, 1000)
 
-        settings_card, layout = card(S.SETTINGS_TITLE, spacing=18)
+        settings_card, layout = card(S.SETTINGS_TITLE, spacing=18,
+                                     help="settings")
         layout.addWidget(_fieldset(S.LEGEND_RANGE_GROUP, [
             (S.F_RANGE_LO, self.range_lo, S.FIELD_RANGE_TIP, None, 1),
             (S.F_RANGE_HI, self.range_hi, S.FIELD_RANGE_TIP, None, 1),
@@ -237,16 +246,18 @@ class DataScreen(Screen):
             (S.F_NU_HI, self.nu_hi, S.FIELD_NU_TIP, "narrow_peak_nu", 1),
             (S.F_NARROW, self.narrow, S.FIELD_NARROW_TIP,
              "max_num_narrow_peaks", 1),
-            (S.F_WIDE, self.wide, None, "max_num_wide_peaks", 1)],
+            (S.F_WIDE, self.wide, S.FIELD_WIDE_TIP, "max_num_wide_peaks",
+             1)],
             note=S.NU_NOTE))
         layout.addWidget(_fieldset(S.LEGEND_SAMPLER_GROUP, [
             (S.F_OPTIONS, self.options, S.FIELD_OPTIONS_TIP,
              "dnest4_options_file", 2),
             (S.F_SAVES, self.max_saves, S.FIELD_MAX_SAVES_TIP, None, 1),
-            (S.F_THREADS, self.threads, None, "num_threads", 1),
+            (S.F_THREADS, self.threads, S.FIELD_THREADS_TIP, "num_threads",
+             1),
             (S.F_SEED, self.seed, S.FIELD_SEED_TIP, "seed", 1),
             (S.F_NUM_SEEDS, self.num_seeds, S.FIELD_NUM_SEEDS_TIP, None, 1)],
-            note=S.SEEDS_NOTE))
+            note=S.SEEDS_NOTE, help="options"))
         layout.addStretch(1)
 
         self.run_button = QPushButton(S.RUN)

@@ -30,8 +30,10 @@ try:
 except ImportError:
     collect_ignore_glob = ["test_*.py"]
 else:
+    import gc
+
     import pytest
-    from PySide6.QtCore import QSettings
+    from PySide6.QtCore import QCoreApplication, QEvent, QSettings
 
     # Before anything imports pyplot
     import amorph_gui.app
@@ -58,6 +60,15 @@ else:
         w.show()
         yield w
         w.close()
+        # Delete the window here, in the GUI thread. Its screens hold
+        # lambdas that refer to them, so left to the garbage collector it
+        # could be deleted in whatever thread collects next: a worker that
+        # reads an archive in a later test, which crashes Qt.
+        w.tasks.wait()
+        w.queue.post_tasks.wait()
+        w.deleteLater()
+        QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+        gc.collect()
 
     @pytest.fixture(scope="module")
     def fake_run(tmp_path_factory):

@@ -25,7 +25,10 @@ Pre-releases (v1.1.0-rc.1, ...) come before the release, on GitHub only.
   sample or the last saved one, with their levels among those of the
   sampler. It used to show only the last saved sample, which once the
   levels are built is usually from a low level and fits the data worse
-  than the posterior.
+  than the posterior. The estimate is updated every second; when it takes
+  longer, as on a slow computer or late in a long run, it waits four
+  times as long as it took, and the plots are redrawn only for a new
+  estimate.
 - «Сравнение»: the options file and the saves of each run, its effective
   sample size, log(Z) against the best run of the same data and settings,
   and its checks; a run 5 nats or more below the best did not converge
@@ -35,17 +38,71 @@ Pre-releases (v1.1.0-rc.1, ...) come before the release, on GitHub only.
   with two panels (`doc/figures/xrd_seeds.tex`), exported as the tables of
   PGFPlots, a folder for LaTeX, PDF and SVG built with the LaTeX
   installed, or PNG. «Добавить папку…» adds every archive of a folder.
+  Every run shown on «Результаты» has a row on «Сравнение», once: a run
+  done here (in 1.0.2 only the seeds of a batch of two or more came
+  there), opened from its folder, or an archive opened.
 - «Данные для PGFPlots…» on «Результаты» writes the tables of
   `export_pgf.py` for the run.
+- «Отчёт LaTeX…» on «Результаты» and «Сравнение» writes a folder with
+  `report.tex` to build with `pdflatex`: the result of the run or of the
+  ticked seeds together and the line for a paper, the table of the runs
+  with their checks, the data and the settings, the diagnostic cards of
+  each run, both figures with their tables, and how to read the numbers,
+  in Russian or in English as chosen in the menu of the button
+  (`src/amorph_gui/report.py`, the English texts in `strings_en.py`).
 - `doc/figures/xrd_fit.tex` also builds SVG: `latex` and `dvisvgm`.
 - `src/amorph_seeds.py` pools the seeds of a sample;
   `export_pgf.write_tables` writes the tables from curves in memory;
   `src/amorph_tex.py` writes the folders of the figures and builds them.
 
+- «Открыть прогоны…» on «Прогоны» (or a folder chosen on «Сравнение», or
+  folders dropped on the window) opens runs done earlier or on another
+  computer from their folders, many at a time: each on «Прогоны» with its
+  output and its estimate rebuilt from its saves, on «Результаты» and on
+  «Сравнение». A run without an up-to-date archive is post-processed.
+- Explanations in the GUI: a «?» next to each card, figure and group of
+  settings explains in plain words what it shows, and «Справка» (F1) has
+  all these explanations on one page; the numbers, the columns of the
+  tables, the views and the layers have tooltips. The intervals read
+  "с вероятностью 50% — от … до …" instead of "50% [ , ]", and the
+  column «Доля [25%, 75%]» of «Сравнение» is «Доля [50% интервал]».
+- A splash screen shows as soon as the GUI starts, with the step under way:
+  the first start of a newly unpacked package can take a minute while the
+  system checks its files, and without a window the program was started
+  again and again. The README says so too.
+
+### Changed
+
+- The fraction on the figure of `doc/figures/xrd_fit.tex`, and on its
+  preview in the GUI, is the median with its 50% interval, as
+  $62.1^{+3.0}_{-3.9}$ %: the numbers that the GUI and the line for a
+  paper give. It was the mean: 61.4% where the median is 62.1%, as the
+  distribution has a longer tail towards lower fractions. The interval
+  is not symmetric and stays within 0-100%: near 100% it reads
+  $98.0^{+1.5}_{-5.0}$, not 98 ± 10. `export_pgf.py` writes it in
+  `\xrdamorph`, its numbers in `\xrdamorphmedian`, `\xrdamorphlo` and
+  `\xrdamorphhi`; tables of an older `export_pgf.py` still show the mean.
+- The words of both figures (`xrd_fit`, `xrd_seeds`) come with their
+  tables, in English or in Russian (`src/figure_labels.py`):
+  `export_pgf.py --language ru`, the switch «язык» of «Сравнение» for the
+  preview and every export, the menu of «Данные для PGFPlots…» on
+  «Результаты», and the language of «Отчёт LaTeX…». In Russian the
+  fraction in percent reads «Степень аморфности», as «доля» is 0-1
+  everywhere else. The `.tex` files of the figures load Tempora, a
+  Times-like font with Cyrillic, with newtxmath, instead of newtxtext;
+  tables of an older `export_pgf.py` get the English words.
+
 ### Fixed
 
 - The axes of the plots of the GUI no longer scale numbers with an SI
   prefix: the histogram of the fraction read 200-800 "(x0.001)".
+- The layout of rc.1: an empty table of «Сравнение» squeezed «Архив» and
+  «Настройки» to a few letters, and its hint was cut off; the table of
+  «Прогоны» scrolled sideways; the empty plot of the fraction ran from
+  -0.4 to 0.4.
+- In rc.1 and rc.2 the plots of «Прогоны» were updated every 5 seconds,
+  behind a fast sampler, and the chips of the layers were all struck
+  through, as if hidden.
 
 ### Build and CI
 

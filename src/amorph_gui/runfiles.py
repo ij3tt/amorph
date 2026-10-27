@@ -1,11 +1,13 @@
 """
 The files of a run: its folder runs/<date>_<data>_seed<k>/ with
 config.yaml, the DNest4 options file and the analysed part of the data;
-what the sampler has written so far; and the post-processing that
+what the sampler has written so far; the run folders found in a folder,
+and a run opened from its folder; and the post-processing that
 showresults.py does, followed by the run archive. Nothing here needs Qt,
 and the slow parts run in a worker thread of the GUI.
 """
 
+import glob
 import os
 import re
 import threading
@@ -245,6 +247,103 @@ def progress(folder, reader):
             "levels": count_data_lines(os.path.join(folder, "levels.txt")),
             "levels_text": levels_text(folder),
             "sample": reader.read()}
+
+
+# ------------------------------------------------------ runs done elsewhere
+
+# An archive written up to this many seconds before the last save of its
+# run counts as up to date: copied or synced folders keep coarse file times
+ARCHIVE_SLACK = 2.0
+
+
+def is_run_folder(folder):
+    """
+    Whether folder holds a run: config.yaml and the output of the sampler.
+    """
+    return all(os.path.isfile(os.path.join(folder, name))
+               for name in ("config.yaml", "sample_info.txt", "levels.txt"))
+
+
+def run_folders(path, depth=2):
+    """
+    The run folders of path: path itself if it is one, else those among
+    its subfolders, down to depth levels, sorted by their paths.
+    """
+    path = os.path.abspath(path)
+    if is_run_folder(path):
+        return [path]
+    found = []
+    for root, dirs, _ in os.walk(path):
+        level = 0 if root == path \
+            else os.path.relpath(root, path).count(os.sep) + 1
+        if level and is_run_folder(root):
+            found.append(root)
+            dirs[:] = []
+        elif level + 1 > depth:
+            dirs[:] = []
+        dirs.sort()
+    return sorted(found)
+
+
+def loose_archives(path):
+    """
+    The run archives (.amorph) in path and its subfolders that are not in
+    a run folder: the run.amorph files of the CI workflows, say.
+    """
+    found = []
+    for root, dirs, files in os.walk(os.path.abspath(path)):
+        if is_run_folder(root):
+            dirs[:] = []
+            continue
+        found += [os.path.join(root, f) for f in files
+                  if f.lower().endswith(".amorph")]
+    return sorted(found)
+
+
+def current_archive(folder):
+    """
+    The newest run archive of the run in folder, if it is not older than
+    its last save; else None.
+    """
+    archives = glob.glob(os.path.join(folder, "*.amorph"))
+    if not archives:
+        return None
+    newest = max(archives, key=os.path.getmtime)
+    last_save = os.path.getmtime(os.path.join(folder, "sample_info.txt"))
+    return newest if os.path.getmtime(newest) + ARCHIVE_SLACK >= last_save \
+        else None
+
+
+def open_run(folder):
+    """
+    A run of the sampler done earlier or on another computer, from its
+    folder: its settings (config.yaml and the options file), the analysed
+    data, the counts of its saves and levels, its output (run.log) and its
+    results. These come from its archive if it is up to date; otherwise
+    the run is post-processed here as the GUI does at the end of a run,
+    which writes posterior_sample.txt and the archive into its folder.
+    """
+    folder = os.path.abspath(folder)
+    settings, options = config.read_config(os.path.join(folder,
+                                                        "config.yaml"))
+    x, y = amorph_stats.load_data(os.path.join(folder, settings.data_file))
+    log = ""
+    path = os.path.join(folder, LOG_FILE)
+    if os.path.isfile(path):
+        with open(path, encoding="utf-8", errors="replace") as f:
+            log = f.read()
+    archive = current_archive(folder)
+    if archive is not None:
+        results = amorph_archive.read(archive)
+    else:
+        results, archive = postprocess(folder)
+    return {"folder": folder, "seed": settings.seed,
+            "planned": settings.max_saves if options is not None else 0,
+            "x": x, "y": y, "log": log, "results": results,
+            "archive": archive,
+            "saves": count_data_lines(os.path.join(folder,
+                                                   "sample_info.txt")),
+            "levels": count_data_lines(os.path.join(folder, "levels.txt"))}
 
 
 # --------------------------------------------------------- post-processing

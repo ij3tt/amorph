@@ -1,8 +1,9 @@
 """
-The main window: the navigation on the left and the four screens. It
-starts the runs that «Данные и модель» asks for, shows the results of
-each run when it has been post-processed, and opens archives for every
-screen's «Открыть архив…».
+The main window: the navigation on the left, the four screens and
+«Справка». It starts the runs that «Данные и модель» asks for, shows the
+results of each run when it has been post-processed, opens archives for
+every screen's «Открыть архив…», and opens «Справка» at a topic for a «?»
+and for F1.
 """
 
 import datetime
@@ -10,8 +11,8 @@ import os
 import sys
 import time
 
-from PySide6.QtCore import QPointF, QSize, Qt
-from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen
+from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QKeySequence, QPainter, QShortcut
 from PySide6.QtWidgets import (QFileDialog, QHBoxLayout, QLabel,
                                QListWidget, QListWidgetItem, QMainWindow,
                                QMessageBox, QPushButton, QStackedWidget,
@@ -19,18 +20,20 @@ from PySide6.QtWidgets import (QFileDialog, QHBoxLayout, QLabel,
 
 import amorph_archive
 
-from amorph_gui import config, preferences, runfiles
+from amorph_gui import config, helptext, live, preferences, runfiles
+from amorph_gui import runs as R
 from amorph_gui import strings as S
 from amorph_gui import theme
 from amorph_gui.compare_screen import CompareScreen
 from amorph_gui.data_screen import DataScreen
+from amorph_gui.help_screen import HelpScreen
 from amorph_gui.results_screen import ResultsScreen
 from amorph_gui.runs import Run, RunQueue
 from amorph_gui.runs_screen import RunsScreen
 from amorph_gui.tasks import Tasks
 from amorph_gui.widgets import HEADER_HEIGHT
 
-DATA, RUNS, RESULTS, COMPARE = range(4)
+DATA, RUNS, RESULTS, COMPARE, HELP = range(5)
 
 
 class Logo(QWidget):
@@ -44,20 +47,7 @@ class Logo(QWidget):
 
     def paintEvent(self, event):
         p = QPainter(self)
-        p.setRenderHint(QPainter.Antialiasing)
-        pen = QPen(QColor(theme.INK), 1.8)
-        pen.setCapStyle(Qt.RoundCap)
-        pen.setJoinStyle(Qt.RoundJoin)
-        p.setPen(pen)
-        p.drawLine(QPointF(2, 19), QPointF(22, 19))
-        hump = QPainterPath(QPointF(3, 18))
-        hump.cubicTo(QPointF(6, 18), QPointF(6, 9), QPointF(9, 9))
-        hump.cubicTo(QPointF(12, 9), QPointF(12, 18), QPointF(15, 18))
-        p.drawPath(hump)
-        spike = QPainterPath(QPointF(16, 18))
-        spike.lineTo(QPointF(17.2, 6))
-        spike.lineTo(QPointF(18.4, 18))
-        p.drawPath(spike)
+        theme.paint_logo(p)
         p.end()
 
 
@@ -94,6 +84,7 @@ class MainWindow(QMainWindow):
         self.headless = headless
         self.errors = []
         self.last_archive_dir = None
+        self.last_runs_dir = None
         self.setWindowTitle(S.WINDOW_TITLE)
         self.tasks = Tasks(parent=self)
         self.queue = RunQueue(self.tasks, parent=self)
@@ -102,21 +93,26 @@ class MainWindow(QMainWindow):
         self.runs_screen = RunsScreen(self.queue)
         self.results_screen = ResultsScreen(self.tasks)
         self.compare_screen = CompareScreen(self.tasks)
+        self.help_screen = HelpScreen()
         self.screens = [self.data_screen, self.runs_screen,
-                        self.results_screen, self.compare_screen]
+                        self.results_screen, self.compare_screen,
+                        self.help_screen]
 
-        # The steps, numbered as in the design
+        # The steps, numbered as in the design, and «Справка» after them
         self.nav = QListWidget()
         self.nav.setObjectName("nav")
         for i, name in enumerate([S.SCREEN_DATA, S.SCREEN_RUNS,
-                                  S.SCREEN_RESULTS, S.SCREEN_COMPARE]):
-            item = QListWidgetItem("{0}   {1}".format(i + 1, name), self.nav)
+                                  S.SCREEN_RESULTS, S.SCREEN_COMPARE,
+                                  S.SCREEN_HELP]):
+            number = "?" if i == HELP else str(i + 1)
+            item = QListWidgetItem("{0}   {1}".format(number, name), self.nav)
             item.setSizeHint(QSize(0, 44))
         self.nav.setFixedWidth(224)
         self.stack = QStackedWidget()
         for screen in self.screens:
             self.stack.addWidget(screen)
             screen.openArchiveRequested.connect(self.open_archive_dialog)
+            screen.openRunsRequested.connect(self.open_runs_dialog)
             screen.errorReported.connect(self.error)
         self.nav.currentRowChanged.connect(self.stack.setCurrentIndex)
 
@@ -144,10 +140,17 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.stack, 1)
         self.setCentralWidget(central)
         self.nav.setCurrentRow(DATA)
+        help_key = QShortcut(QKeySequence(QKeySequence.HelpContents), self)
+        help_key.activated.connect(self.show_help)
 
         self.data_screen.runRequested.connect(self.start_runs)
         self.runs_screen.showResults.connect(self.show_run_results)
         self.compare_screen.showArchive.connect(self.open_archive)
+        self.compare_screen.folderChosen.connect(
+            lambda folder: self.open_paths([folder]))
+        self.runs_screen.estimateWanted.connect(self.replay_run)
+        # Folders of runs and archives dropped on the window open
+        self.setAcceptDrops(True)
         self.results_screen.message.connect(self.status)
         self.compare_screen.message.connect(self.status)
         self.queue.postprocessed.connect(self._postprocessed)
@@ -158,6 +161,18 @@ class MainWindow(QMainWindow):
 
     def show_screen(self, index):
         self.nav.setCurrentRow(index)
+
+    def show_help(self, topic=None):
+        """
+        «Справка» at topic, or at the topic of the screen shown (F1).
+        """
+        if topic is None:
+            index = self.stack.currentIndex()
+            if index == HELP:
+                return
+            topic = helptext.SCREEN_TOPICS[index]
+        self.show_screen(HELP)
+        self.help_screen.show_topic(topic)
 
     def status(self, text):
         self.statusBar().showMessage(text, 10000)
@@ -183,7 +198,8 @@ class MainWindow(QMainWindow):
 
     def open_archive(self, path):
         """
-        Read an archive in a worker thread and show it on «Результаты».
+        Read an archive in a worker thread and show it on «Результаты», and
+        on «Сравнение» if it is not there yet.
         """
         path = os.path.abspath(path)
         self.last_archive_dir = os.path.dirname(path)
@@ -192,12 +208,144 @@ class MainWindow(QMainWindow):
         def done(results):
             self.results_screen.show_results(
                 results, S.SOURCE_ARCHIVE.format(path), archive=path)
+            self.compare_screen.add_results(results, path)
             self.show_screen(RESULTS)
             self.status(S.ARCHIVE_OPENED.format(path))
 
         self.tasks.run(lambda: amorph_archive.read(path), done,
                        lambda e: self.error(S.ERROR, S.CANNOT_READ_ARCHIVE
                                             .format(path) + ":\n" + e))
+
+    # ------------------------------------------- runs done elsewhere
+
+    def open_runs_dialog(self):
+        folder = QFileDialog.getExistingDirectory(
+            self, S.CHOOSE_RUNS, self.last_runs_dir or self.prefs.runs_folder)
+        if folder:
+            self.open_paths([folder])
+
+    def open_paths(self, paths):
+        """
+        Open what paths name: the run folders among them and in their
+        subfolders (open_runs), and the run archives that are not in a run
+        folder, on «Сравнение» (one archive alone on «Результаты»).
+        """
+        folders = [p for p in paths if os.path.isdir(p)]
+        archives = [p for p in paths if os.path.isfile(p)
+                    and p.lower().endswith(".amorph")]
+        for folder in folders:
+            archives += runfiles.loose_archives(folder)
+        runs = self.open_runs(folders, quiet=bool(archives)) if folders \
+            else []
+        if len(archives) == 1 and not runs:
+            self.open_archive(archives[0])
+        elif archives:
+            self.compare_screen.add_archives(archives)
+            if not runs:
+                self.show_screen(COMPARE)
+
+    def open_runs(self, paths, quiet=False):
+        """
+        Open the run folders among paths and in their subfolders, each as a
+        run on «Прогоны» with its output and its estimate, its results on
+        «Результаты» and a row on «Сравнение». Its results come from its
+        archive, or from the post-processing (runfiles.open_run). A folder
+        already shown is not read again, but gets its row on «Сравнение»
+        back if it was removed. Returns the runs opened.
+        """
+        found = []
+        for path in paths:
+            found += runfiles.run_folders(path)
+        found = list(dict.fromkeys(found))
+        if not found:
+            if not quiet:
+                self.error(S.OPEN_RUNS, S.NO_RUN_FOLDERS.format(
+                    ", ".join(paths)))
+            return []
+        shown = {os.path.normcase(r.folder): r for r in self.runs_screen.rows}
+        again = [shown[os.path.normcase(f)] for f in found
+                 if os.path.normcase(f) in shown]
+        for run in again:
+            if run.results is not None:
+                self.compare_screen.add_results(run.results, run.archive)
+        folders = [f for f in found if os.path.normcase(f) not in shown]
+        if not folders:
+            self.runs_screen.show_run(again[0])
+            self.show_screen(RUNS)
+            self.status(S.RUNS_ALREADY_OPEN.format(len(again)))
+            return []
+        self.last_runs_dir = os.path.dirname(folders[0])
+        runs = []
+        for folder in folders:
+            run = Run(folder, None, 0, None, None)
+            run.opened = True
+            run.status = R.OPENING
+            self.runs_screen.update_run(run)
+            runs.append(run)
+            self.queue.post_tasks.run(
+                lambda folder=folder: runfiles.open_run(folder),
+                lambda info, run=run: self._run_opened(run, info),
+                lambda e, run=run: self._run_not_opened(run, e))
+        if self.runs_screen.shown is None:
+            self.runs_screen.show_run(runs[0])
+        self.show_screen(RUNS)
+        self.status(S.RUNS_OPENED.format(len(runs)))
+        return runs
+
+    def _run_opened(self, run, info):
+        run.seed, run.planned = info["seed"], info["planned"]
+        run.x, run.y = info["x"], info["y"]
+        run.saves, run.levels = info["saves"], info["levels"]
+        run.log = [info["log"]]
+        run.results, run.archive = info["results"], info["archive"]
+        run.status = R.INCOMPLETE if run.planned and \
+            run.saves < run.planned else R.DONE
+        self.runs_screen.update_run(run)
+        self.results_screen.show_results(
+            run.results, S.SOURCE_RUN.format(run.folder),
+            archive=run.archive, stopped=run.status == R.INCOMPLETE)
+        self.compare_screen.add_results(run.results, run.archive)
+        if self.runs_screen.shown is run:
+            self.replay_run(run)
+
+    def _run_not_opened(self, run, error):
+        run.status = R.FAILED
+        run.error = S.OPEN_RUN_FAILED.format(run.folder, error)
+        self.runs_screen.update_run(run)
+        self.error(S.ERROR, run.error)
+
+    def replay_run(self, run):
+        """
+        The estimate of a run opened from its folder, with its trace
+        (live.replay), once: it reads all its saves.
+        """
+        if not run.opened or run.x is None or run.estimate is not None \
+                or getattr(run, "_replaying", False):
+            return
+        run._replaying = True
+        folder, x = run.folder, run.x
+
+        def done(estimate):
+            run._replaying = False
+            run.estimate = estimate
+            self.runs_screen.update_run(run)
+
+        def failed(error):
+            run._replaying = False
+            self.status(S.OPEN_RUN_FAILED.format(run.folder, error))
+
+        self.tasks.run(lambda: live.replay(folder, x), done, failed)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        paths = [u.toLocalFile() for u in event.mimeData().urls()
+                 if u.isLocalFile()]
+        if paths:
+            event.acceptProposedAction()
+            self.open_paths(paths)
 
     # ---------------------------------------------------------------- runs
 
@@ -236,24 +384,23 @@ class MainWindow(QMainWindow):
         self.results_screen.show_results(
             run.results, S.SOURCE_RUN.format(run.folder), archive=run.archive,
             stopped=run.stopped)
+        self.compare_screen.add_results(run.results, run.archive)
         self.show_screen(RESULTS)
 
     def _postprocessed(self, run):
+        # Every run on «Результаты» and on «Сравнение», a single seed too
         if run.results is None:
             self.status(run.error or "")
             return
         self.results_screen.show_results(
             run.results, S.SOURCE_RUN.format(run.folder), archive=run.archive,
             stopped=run.stopped)
+        self.compare_screen.add_results(run.results, run.archive)
         self.status(S.POSTPROCESSED.format(run.name, run.archive))
 
     def _batch_finished(self, runs):
-        # The seeds of one batch side by side
-        archives = [r.archive for r in runs if r.archive]
-        if len(archives) > 1:
-            self.compare_screen.add_archives(archives)
         self.status(S.QUEUE_DONE)
-        if self.stack.currentIndex() == RUNS and archives:
+        if self.stack.currentIndex() == RUNS and any(r.archive for r in runs):
             self.show_screen(RESULTS)
 
     def closeEvent(self, event):

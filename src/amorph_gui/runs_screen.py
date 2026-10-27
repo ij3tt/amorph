@@ -21,13 +21,15 @@ from PySide6.QtWidgets import (QAbstractItemView, QButtonGroup, QGridLayout,
                                QScrollArea, QSplitter, QTableWidget,
                                QTableWidgetItem, QVBoxLayout, QWidget)
 
+from amorph_gui import helptext
 from amorph_gui import runs as R
 from amorph_gui import strings as S
 from amorph_gui import theme
-from amorph_gui.widgets import Banner, Screen, card, styled_label
+from amorph_gui.widgets import (Banner, HelpButton, Screen, card,
+                                styled_label, title_row, tooltip)
 
 COLUMNS = [S.COLUMN_FOLDER, S.COLUMN_SEED, S.COLUMN_STATUS, S.COLUMN_SAVES,
-           S.COLUMN_LEVELS, S.COLUMN_FRACTION_NOW, S.COLUMN_TIME]
+           S.COLUMN_LEVELS, S.COLUMN_TIME]
 STATUS_COLUMN = 2
 
 # What the model plot shows: the posterior mean, the best sample so far or
@@ -102,10 +104,13 @@ class LevelGauge(QWidget):
 
 class RunsScreen(Screen):
     """
-    showResults(run) asks for the results of a run on «Результаты».
+    showResults(run) asks for the results of a run on «Результаты»;
+    estimateWanted(run), for the estimate of a run opened from its folder
+    that has none yet (main_window.replay_run).
     """
 
     showResults = Signal(object)
+    estimateWanted = Signal(object)
 
     def __init__(self, queue, parent=None):
         super().__init__(S.SCREEN_RUNS, parent)
@@ -113,6 +118,8 @@ class RunsScreen(Screen):
         self.rows = []
         self.shown = None
         self._data_of = None
+        # What the plots were last drawn from (_show_progress)
+        self._drawn = None
         self.view = "mean"
         self.layers = {key: True for key, _ in LAYERS}
         self.set_header("", S.NO_RUNS)
@@ -121,6 +128,7 @@ class RunsScreen(Screen):
         self.stop_button.setEnabled(False)
         self.folder_button = self.add_button(S.OPEN_FOLDER, self.open_folder)
         self.folder_button.setEnabled(False)
+        self.add_button(S.OPEN_RUNS, self.openRunsRequested, S.OPEN_RUNS_TIP)
 
         splitter = QSplitter(Qt.Horizontal)
         splitter.setChildrenCollapsible(False)
@@ -129,7 +137,7 @@ class RunsScreen(Screen):
         splitter.addWidget(self._make_live())
         splitter.setStretchFactor(0, 2)
         splitter.setStretchFactor(1, 3)
-        splitter.setSizes([440, 760])
+        splitter.setSizes([480, 720])
         self.body.addWidget(splitter, 1)
         self._apply_layers()
 
@@ -139,11 +147,14 @@ class RunsScreen(Screen):
     # -------------------------------------------------------------- layout
 
     def _make_queue(self):
-        queue_card, layout = card(S.QUEUE_TITLE)
+        queue_card, layout = card(S.QUEUE_TITLE, help="queue")
         self.hint = styled_label(S.NO_RUNS, "muted")
         layout.addWidget(self.hint)
         self.table = QTableWidget(0, len(COLUMNS))
-        self.table.setHorizontalHeaderLabels(COLUMNS)
+        for i, (name, tip) in enumerate(zip(COLUMNS, S.RUNS_COLUMN_TIPS)):
+            item = QTableWidgetItem(name)
+            item.setToolTip(tooltip(tip))
+            self.table.setHorizontalHeaderItem(i, item)
         self.table.verticalHeader().setVisible(False)
         self.table.verticalHeader().setDefaultSectionSize(38)
         self.table.setShowGrid(False)
@@ -182,7 +193,7 @@ class RunsScreen(Screen):
         outer.addWidget(self._make_estimate())
         outer.addWidget(self._make_model())
 
-        log_card, layout = card(S.LOG)
+        log_card, layout = card(S.LOG, help="log")
         self.log = QPlainTextEdit()
         self.log.setObjectName("log")
         self.log.setReadOnly(True)
@@ -200,14 +211,17 @@ class RunsScreen(Screen):
         return scroll
 
     def _make_estimate(self):
-        estimate_card, layout = card(S.ESTIMATE_TITLE)
+        estimate_card, layout = card(S.ESTIMATE_TITLE, help="estimate")
         row = QHBoxLayout()
         row.setSpacing(16)
         self.fraction_value = QLabel("—")
         self.fraction_value.setObjectName("liveFraction")
+        self.fraction_value.setToolTip(tooltip(S.FRACTION_NOW_TIP))
         row.addWidget(self.fraction_value)
         self.fraction_intervals = QLabel()
         self.fraction_intervals.setObjectName("mono")
+        self.fraction_intervals.setWordWrap(True)
+        self.fraction_intervals.setToolTip(tooltip(S.INTERVALS_TIP))
         row.addWidget(self.fraction_intervals, 1, Qt.AlignBottom)
         self.settled = QLabel()
         self.settled.hide()
@@ -218,11 +232,15 @@ class RunsScreen(Screen):
         stats.setHorizontalSpacing(16)
         self.stat_values = []
         self.stat_captions = []
+        tips = (S.STAT_SHIFT_TIP, helptext.short("ess"),
+                helptext.short("log_z"))
         for i, caption in enumerate((S.STAT_SHIFT_NONE, S.STAT_ESS,
                                      S.STAT_LOG_Z)):
             value = QLabel("—")
             value.setObjectName("stat")
+            value.setToolTip(tooltip(tips[i]))
             text = styled_label(caption, "muted")
+            text.setToolTip(tooltip(tips[i]))
             stats.addWidget(value, 0, i)
             stats.addWidget(text, 1, i)
             stats.setColumnStretch(i, 1)
@@ -254,6 +272,7 @@ class RunsScreen(Screen):
         self.levels_done.hide()
         item.addItem(self.levels_done)
         self.trace_plot.setMinimumHeight(170)
+        self._empty_trace_range()
         layout.addWidget(self.trace_plot)
         self.estimate_note = styled_label(S.ESTIMATE_WAITING, "muted")
         layout.addWidget(self.estimate_note)
@@ -261,10 +280,8 @@ class RunsScreen(Screen):
 
     def _make_model(self):
         model_card, layout = card()
-        top = QHBoxLayout()
-        title = QLabel(S.MODEL_TITLE)
-        title.setObjectName("cardTitle")
-        top.addWidget(title, 1)
+        top = title_row(S.MODEL_TITLE, "model_views")
+        top.addStretch(1)
         self.view_buttons = {}
         group = QButtonGroup(self)
         group.setExclusive(True)
@@ -275,6 +292,7 @@ class RunsScreen(Screen):
             button.setObjectName("segment")
             button.setCheckable(True)
             button.setChecked(key == self.view)
+            button.setToolTip(tooltip(S.VIEW_TIPS[key]))
             button.clicked.connect(lambda checked, k=key: self.set_view(k))
             group.addButton(button)
             segments.addWidget(button)
@@ -290,11 +308,13 @@ class RunsScreen(Screen):
             button.setObjectName("chip")
             button.setCheckable(True)
             button.setChecked(True)
-            button.setToolTip(S.LAYER_TIP)
+            button.setToolTip(tooltip(S.LAYER_TIPS[key] + ". " +
+                                       S.LAYER_SWITCH))
             button.toggled.connect(
                 lambda on, k=key: self.set_layer(k, on))
             chips.addWidget(button)
             self.layer_buttons[key] = button
+        chips.addWidget(HelpButton("layers"), 0, Qt.AlignVCenter)
         chips.addStretch(1)
         layout.addLayout(chips)
 
@@ -332,9 +352,15 @@ class RunsScreen(Screen):
         self.view_banner = Banner()
         layout.addWidget(self.view_banner)
 
+        levels_row = QHBoxLayout()
+        levels_row.setSpacing(6)
         self.levels_text = styled_label(S.LEVELS_TITLE, "muted")
-        layout.addWidget(self.levels_text)
+        levels_row.addWidget(self.levels_text)
+        levels_row.addWidget(HelpButton("levels"), 0, Qt.AlignVCenter)
+        levels_row.addStretch(1)
+        layout.addLayout(levels_row)
         self.gauge = LevelGauge()
+        self.gauge.setToolTip(tooltip(helptext.short("levels")))
         layout.addWidget(self.gauge)
         self.gauge_legend = QLabel()
         self.gauge_legend.setTextFormat(Qt.RichText)
@@ -352,14 +378,13 @@ class RunsScreen(Screen):
             self.set_header("", S.RUNS_HEADER.format(len(self.rows)))
         i = self.rows.index(run)
         planned = str(run.planned) if run.planned else "∞"
-        estimate = run.estimate
-        fraction = ""
-        if estimate is not None and estimate.get("quantiles") is not None:
-            q = estimate["quantiles"]
-            fraction = S.FRACTION_NOW_CELL.format(q[2], q[1], q[3])
-        cells = [run.name, str(run.seed), R.STATUS_TEXT[run.status],
+        # A run opened from its folder has no time of its own here
+        elapsed = R.format_time(run.elapsed()) if run.started is not None \
+            else "—"
+        seed = "—" if run.seed is None else str(run.seed)
+        cells = [run.name, seed, R.STATUS_TEXT[run.status],
                  "{0} / {1}".format(run.saves, planned), str(run.levels),
-                 fraction, R.format_time(run.elapsed())]
+                 elapsed]
         for j, text in enumerate(cells):
             item = self.table.item(i, j)
             if item is None:
@@ -392,6 +417,15 @@ class RunsScreen(Screen):
             self.log.verticalScrollBar().maximum())
         self.folder_button.setEnabled(True)
         self._show_progress(run)
+        if run.opened and run.estimate is None:
+            self.estimateWanted.emit(run)
+
+    def show_run(self, run):
+        """
+        Choose run in the table.
+        """
+        if run in self.rows:
+            self.table.selectRow(self.rows.index(run))
 
     def _double_clicked(self, row, column):
         run = self.rows[row]
@@ -420,6 +454,16 @@ class RunsScreen(Screen):
             self.error.show()
         else:
             self.error.hide()
+        # The plots are redrawn only when what they show has changed: the
+        # estimate, or the last sample while there is no estimate. A poll
+        # that brought no new estimate leaves them, which spares a slow
+        # computer the drawing
+        drawn = (run, run.status, run.planned, run.estimate,
+                 run.sample if run.estimate is None else None)
+        if self._drawn is not None and all(
+                a is b for a, b in zip(drawn, self._drawn)):
+            return
+        self._drawn = drawn
         self._show_estimate(run)
         self._show_model(run)
 
@@ -438,12 +482,17 @@ class RunsScreen(Screen):
             for value in self.stat_values:
                 value.setText("—")
             self.stat_captions[0].setText(S.STAT_SHIFT_NONE)
-            self.estimate_note.setText(S.ESTIMATE_WAITING)
+            self.estimate_note.setText(
+                S.ESTIMATE_REPLAYING if run.opened and e is None
+                else S.ESTIMATE_WAITING)
+            self._empty_trace_range(run.planned)
             return
         self.fraction_value.setText(S.FRACTION_NOW.format(q[2]))
         self.fraction_intervals.setText(S.FRACTION_NOW_INTERVALS.format(
             q[1], q[3], q[0], q[4]))
         self.settled.setText(S.SETTLED if e["settled"] else S.UNSETTLED)
+        self.settled.setToolTip(tooltip(S.SETTLED_TIP if e["settled"]
+                                        else S.UNSETTLED_TIP))
         self.settled.setObjectName("okBadge" if e["settled"]
                                    else "waitBadge")
         # The style sheet looks at the name only when the label is polished
@@ -473,6 +522,12 @@ class RunsScreen(Screen):
         low = max(0.0, float(trace[:, 1].min()) - 0.05)
         high = min(1.0, float(trace[:, 5].max()) + 0.05)
         item.setYRange(low, high, padding=0.0)
+
+    def _empty_trace_range(self, planned=0):
+        # The fraction lies within 0 and 1, over the planned saves
+        item = self.trace_plot.getPlotItem()
+        item.setXRange(0, max(planned or 0, 1), padding=0.01)
+        item.setYRange(0.0, 1.0, padding=0.0)
 
     # --------------------------------------------------------- the model
 

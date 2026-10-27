@@ -21,6 +21,8 @@ sys.path.insert(0, os.path.join(ROOT, "tests"))
 import amorph_results
 import amorph_seeds
 import amorph_tex
+import export_pgf
+import figure_labels
 from test_results import make_full_run
 
 QUANTILES = ["q05", "q25", "q50", "q75", "q95"]
@@ -115,7 +117,7 @@ def test_runs_of_other_data_are_refused(results):
 
 
 def read_macros(path):
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         return dict(re.findall(r"\\def\\(\w+)\{(.*?)\}(?=\\def|\n)", f.read()))
 
 
@@ -139,8 +141,13 @@ def test_tables_of_both_figures(results, tmp_path):
                                rtol=1E-5)
     meta = read_macros(os.path.join(out, "xrd_meta.tex"))
     assert meta["xrdtitle"] == "demo\\_data.txt"
-    assert float(meta["xrdamorph"].rstrip("\\%")) == pytest.approx(
-        100.0 * pooled["mean"], abs=0.051)
+    # The median with its 50% interval, as the report gives it
+    q = [100.0 * v for v in pooled["quantiles"]]
+    assert meta["xrdamorphmedian"] == "{0:.1f}".format(q[2])
+    assert meta["xrdamorphlo"] == "{0:.1f}".format(q[1])
+    assert meta["xrdamorphhi"] == "{0:.1f}".format(q[3])
+    assert meta["xrdamorph"] == export_pgf.fraction_label(q[2], q[1], q[3])
+    assert meta["xrdamorphnote"] == "median and 50\\% interval"
     assert meta["xrdnsamples"] == str(len(pooled["examples"]["model_curve"]))
 
     # The tables of the two-panel figure
@@ -156,6 +163,40 @@ def test_tables_of_both_figures(results, tmp_path):
     seeds = read_macros(os.path.join(out, "seeds_meta.tex"))
     assert seeds["seedsmedian"] == "{0:.3f}".format(pooled["quantiles"][2])
     assert "seeds 5, 99" in seeds["seedstitle"]
+    # The words of the figures, in English by default
+    assert meta["xrdylabel"] == "Intensity, arb. un."
+    assert seeds["seedsylabel"] == "Intensity, counts"
+
+
+def test_the_words_of_the_figures_in_russian(results, tmp_path):
+    words = figure_labels.LABELS
+    assert sorted(words["en"]) == sorted(words["ru"])
+    pooled = amorph_seeds.pool([results, shifted(results, 0.05)])
+    out = str(tmp_path / "pgf")
+    amorph_tex.write_tables(pooled, out, "demo_data.txt", language="ru")
+    meta = read_macros(os.path.join(out, "xrd_meta.tex"))
+    assert meta["xrdylabel"] == "Интенсивность, отн. ед."
+    assert meta["xrdamorphname"] == "Степень аморфности"
+    assert meta["xrdamorphnote"] == "медиана и 50\\% интервал"
+    assert meta["xrdlegdata"] == "Эксперимент"
+    seeds = read_macros(os.path.join(out, "seeds_meta.tex"))
+    assert seeds["seedsylabel"] == "Интенсивность, имп."
+    assert seeds["seedspooled"] == "вместе"
+    assert "сиды 5, 99" in seeds["seedstitle"]
+    assert seeds["seedscount"] == "по сидам (2) и вместе"
+    with open(os.path.join(out, "seeds_densities.tex"),
+              encoding="utf-8") as f:
+        assert "сид 5" in f.read()
+    # Every word of both bodies comes from the tables
+    for name in ("xrd_fit_body.tex", "xrd_seeds_body.tex"):
+        with open(os.path.join(ROOT, "doc", "figures", name),
+                  encoding="utf-8") as f:
+            body = "\n".join(
+                line for line in f
+                if not line.lstrip().startswith(("%", "\\provide")))
+        for english in ("Experimental", "Intensity", "posterior density",
+                        "{pooled}", "amorphous halo", "Amorphous ="):
+            assert english not in body, (name, english)
 
 
 def test_folder_of_a_figure(results, tmp_path):
@@ -188,12 +229,13 @@ def test_a_missing_program_is_named(results, tmp_path):
 
 @pytest.mark.skipif(len(amorph_tex.find_latex()) < len(amorph_tex.TOOLS),
                     reason="LaTeX is not installed")
-def test_latex_builds_pdf_and_svg(results, tmp_path):
+@pytest.mark.parametrize("language", figure_labels.LANGUAGES)
+def test_latex_builds_pdf_and_svg(results, tmp_path, language):
     tools = amorph_tex.find_latex()
     pooled = amorph_seeds.pool([results, shifted(results, 0.05)])
     for figure in amorph_tex.FIGURES:
         folder = str(tmp_path / figure)
-        amorph_tex.write_figure(pooled, folder, figure, "demo")
+        amorph_tex.write_figure(pooled, folder, figure, "demo", language)
         for kind in ("pdf", "svg"):
             path = amorph_tex.build(folder, figure, kind, tools)
             assert os.path.getsize(path) > 1000

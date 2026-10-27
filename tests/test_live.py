@@ -168,6 +168,25 @@ def test_the_estimate_settles(finished, tmp_path, monkeypatch):
     assert e["settled"] == (e["shift"] < live.SETTLE_SHIFT)
 
 
+def test_the_trace_is_thinned(finished, tmp_path, monkeypatch):
+    # An update at each save, as of a fast sampler
+    source, names, rows = finished
+    monkeypatch.setattr(live, "MAX_TRACE", 4)
+    sampler = Sampler(source, str(tmp_path / "run"))
+    estimate = live.LiveEstimate(sampler.folder, data_x(source))
+    first = None
+    while sampler.saves < len(rows):
+        sampler.save(1)
+        e = estimate.update()
+        assert len(estimate.trace) <= 4
+        if first is None and "trace" in e:
+            first = e["trace"][0, 0]
+    # The first update and the last are kept, in order
+    saves = e["trace"][:, 0]
+    assert saves[0] == first and saves[-1] == len(rows)
+    assert np.all(np.diff(saves) > 0)
+
+
 def test_no_estimate_without_levels(finished, tmp_path):
     source, names, rows = finished
     sampler = Sampler(source, str(tmp_path / "run"))

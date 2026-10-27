@@ -80,6 +80,19 @@ def test_every_screen_opens_an_archive(window, qtbot, archives, monkeypatch):
         assert window.stack.currentIndex() == RESULTS
 
 
+def test_an_archive_opened_is_compared_once(window, qtbot, archives):
+    path = os.path.abspath(archives["seed5"])
+    open_archive(window, qtbot, path)
+    compare = window.compare_screen
+    assert [r["archive"] for r in compare.model.rows] == [path]
+    # Opened again, or added on «Сравнение»: still one row
+    window.results_screen.archive = None
+    open_archive(window, qtbot, path)
+    compare.add_archives([path])
+    assert compare.pending == 0
+    assert compare.model.rowCount() == 1
+
+
 def test_an_unreadable_archive_is_reported(window, qtbot, tmp_path):
     path = str(tmp_path / "broken.amorph")
     with open(path, "wb") as f:
@@ -133,6 +146,18 @@ def test_exports(window, qtbot, archives, tmp_path, monkeypatch):
         assert os.path.isfile(os.path.join(pgf, name))
     with open(os.path.join(pgf, "xrd_meta.tex")) as f:
         assert "\\def\\xrdtitle{demo\\_data.txt}\n" in f.read()
+
+    # The report for LaTeX, with both figures and their tables
+    folder = str(tmp_path / "report")
+    screen.write_report(folder)
+    qtbot.waitUntil(lambda: screen.tasks.active == 0, timeout=20000)
+    for name in ("report.tex", "xrd_fit_body.tex", "xrd_seeds_body.tex",
+                 os.path.join("pgf", "xrd_meta.tex"),
+                 os.path.join("pgf", "seeds_meta.tex")):
+        assert os.path.isfile(os.path.join(folder, name)), name
+    median = screen.results.diagnosis["fraction"]["q50"]
+    with open(os.path.join(folder, "report.tex"), encoding="utf-8") as f:
+        assert "{0:.3f}".format(median) in f.read()
 
 
 def test_results_of_a_folder_are_archived_on_export(window, qtbot,

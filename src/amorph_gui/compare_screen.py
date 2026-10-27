@@ -10,7 +10,8 @@ The ticked runs (all but those that failed a red check, unless the user
 ticks otherwise) make the joint report: the fraction of all of them
 together, how far apart the seeds are, and a figure, in the style of
 doc/figures/xrd_fit.tex or with two panels, previewed here and exported as
-the tables of PGFPlots, a folder for LaTeX, PDF, SVG or PNG (amorph_tex).
+the tables of PGFPlots, a folder for LaTeX, PDF, SVG or PNG (amorph_tex),
+and as a whole report for LaTeX (report.py).
 """
 
 import bisect
@@ -35,11 +36,11 @@ from PySide6.QtWidgets import (QAbstractItemView, QApplication, QButtonGroup,
 import amorph_archive
 import amorph_tex
 
-from amorph_gui import digest, figures
+from amorph_gui import digest, figures, report
 from amorph_gui import strings as S
 from amorph_gui import theme
-from amorph_gui.widgets import Banner, Screen, card, paint_interval, \
-    styled_label
+from amorph_gui.widgets import Banner, HelpButton, Screen, card, \
+    language_menu, paint_interval, styled_label, title_row, tooltip
 
 COLUMNS = [S.COLUMN_ARCHIVE, S.COLUMN_DATA, S.COLUMN_SETTINGS, S.COLUMN_SEED,
            S.COLUMN_SAMPLER, S.COLUMN_ESS, S.COLUMN_LOG_Z, S.COLUMN_FRACTION,
@@ -63,6 +64,11 @@ STYLE_NOTES = {"fit": S.FIGURE_FIT_NOTE, "seeds": S.FIGURE_SEEDS_NOTE}
 # The size of the figures saved as PNG, in inches, and their resolution
 PNG_SIZE = {"fit": (8.0, 5.3), "seeds": (11.0, 4.4)}
 PNG_DPI = 200
+
+
+def _key(path):
+    # One archive whatever the spelling of its path
+    return os.path.normcase(os.path.abspath(path))
 
 
 class ComparisonModel(QAbstractTableModel):
@@ -112,9 +118,8 @@ class ComparisonModel(QAbstractTableModel):
             return COLUMNS[section]
         if role == Qt.ToolTipRole:
             if section == INTERVAL_COLUMN:
-                return S.COLUMN_INTERVAL_TIP
-            if section == 0:
-                return S.COLUMN_CHOSEN_TIP
+                return tooltip(S.COLUMN_INTERVAL_TIP)
+            return tooltip(S.COLUMN_TIPS[section])
         return None
 
     def flags(self, index):
@@ -248,15 +253,21 @@ class CompareScreen(Screen):
 
     showArchive = Signal(str)
     message = Signal(str)
+    # A folder to open: its runs and its archives (main_window.open_paths)
+    folderChosen = Signal(str)
 
     def __init__(self, tasks, parent=None):
         super().__init__(S.SCREEN_COMPARE, parent)
         self.tasks = tasks
         self.pending = 0
+        # The archives being read for a row (_key)
+        self._reading = set()
         self.last_dir = None
         self._order = itertools.count()
         self.pooled = None
         self.figure_style = "fit"
+        # The language of the words on the figure (figure_labels)
+        self.figure_language = "en"
         self.latex = amorph_tex.find_latex()
         self.add_button(S.ADD_ARCHIVES, self.add_archives_dialog)
         self.add_button(S.ADD_FOLDER, self.add_folder_dialog,
@@ -267,7 +278,6 @@ class CompareScreen(Screen):
         self.add_button(S.EXPORT_MARKDOWN, self.export_markdown_dialog)
 
         self.set_header("", S.COMPARE_HINT)
-        self.header_text.setWordWrap(True)
 
         page = QWidget()
         column = QVBoxLayout(page)
@@ -277,7 +287,8 @@ class CompareScreen(Screen):
 
         # What the table shows: the spread of the seeds against that of the
         # settings
-        summary_card, summary_layout = card(S.SUMMARY_TITLE)
+        summary_card, summary_layout = card(S.SUMMARY_TITLE,
+                                            help="compare_summary")
         self.summary = QLabel()
         self.summary.setWordWrap(True)
         self.summary.setObjectName("summary")
@@ -312,7 +323,7 @@ class CompareScreen(Screen):
     # -------------------------------------------------------------- layout
 
     def _make_table(self):
-        table_card, table_layout = card(S.TABLE_TITLE)
+        table_card, table_layout = card(S.TABLE_TITLE, help="compare_table")
         self.model = ComparisonModel(self)
         self.view = QTableView()
         self.view.setShowGrid(False)
@@ -326,13 +337,16 @@ class CompareScreen(Screen):
         self.view.setWordWrap(False)
         self.view.setMinimumHeight(220)
         header = self.view.horizontalHeader()
+        # Wide enough for the names of the columns that stretch, also in an
+        # empty table
+        header.setMinimumSectionSize(84)
         for i in range(len(COLUMNS)):
             header.setSectionResizeMode(i, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(2, QHeaderView.Stretch)
         header.setSectionResizeMode(0, QHeaderView.Stretch)
         self.view.setTextElideMode(Qt.ElideMiddle)
         header.setSectionResizeMode(INTERVAL_COLUMN, QHeaderView.Fixed)
-        header.resizeSection(INTERVAL_COLUMN, 200)
+        header.resizeSection(INTERVAL_COLUMN, 180)
         self.view.doubleClicked.connect(self._double_clicked)
         table_layout.addWidget(self.view, 1)
         self.errors = QLabel()
@@ -343,13 +357,16 @@ class CompareScreen(Screen):
         return table_card
 
     def _make_joint(self):
-        joint_card, layout = card(S.JOINT_TITLE)
+        joint_card, layout = card(S.JOINT_TITLE, help="joint")
         layout.addWidget(styled_label(S.JOINT_CAPTION, "muted"))
         self.joint_value = QLabel("—")
         self.joint_value.setObjectName("liveFraction")
+        self.joint_value.setToolTip(tooltip(S.FRACTION_TIP))
         layout.addWidget(self.joint_value)
         self.joint_intervals = QLabel()
         self.joint_intervals.setObjectName("mono")
+        self.joint_intervals.setWordWrap(True)
+        self.joint_intervals.setToolTip(tooltip(S.INTERVALS_TIP))
         layout.addWidget(self.joint_intervals)
         stats = QGridLayout()
         stats.setHorizontalSpacing(16)
@@ -358,8 +375,11 @@ class CompareScreen(Screen):
                                      S.JOINT_ESS)):
             value = QLabel("—")
             value.setObjectName("stat")
+            value.setToolTip(tooltip(S.JOINT_TIPS[i]))
+            text = styled_label(caption, "muted")
+            text.setToolTip(tooltip(S.JOINT_TIPS[i]))
             stats.addWidget(value, 0, i)
-            stats.addWidget(styled_label(caption, "muted"), 1, i)
+            stats.addWidget(text, 1, i)
             stats.setColumnStretch(i, 1)
             self.joint_stats.append(value)
         layout.addLayout(stats)
@@ -367,7 +387,13 @@ class CompareScreen(Screen):
         self.notes.setSpacing(8)
         layout.addLayout(self.notes)
 
-        layout.addWidget(styled_label(S.PAPER_TITLE, "muted"))
+        paper_title = QHBoxLayout()
+        paper_title.setSpacing(6)
+        paper_title.addWidget(styled_label(S.PAPER_TITLE, "muted",
+                                           wrap=False))
+        paper_title.addWidget(HelpButton("paper"), 0, Qt.AlignVCenter)
+        paper_title.addStretch(1)
+        layout.addLayout(paper_title)
         paper_row = QHBoxLayout()
         self.paper = QLabel()
         self.paper.setObjectName("mono")
@@ -385,10 +411,8 @@ class CompareScreen(Screen):
 
     def _make_figure(self):
         figure_card, layout = card()
-        top = QHBoxLayout()
-        title = QLabel(S.FIGURE_TITLE)
-        title.setObjectName("cardTitle")
-        top.addWidget(title, 1)
+        top = title_row(S.FIGURE_TITLE, "figure")
+        top.addStretch(1)
         top.addWidget(styled_label(S.FIGURE_STYLE, "muted", wrap=False))
         group = QButtonGroup(self)
         group.setExclusive(True)
@@ -405,9 +429,30 @@ class CompareScreen(Screen):
             segments.addWidget(button)
             self.style_buttons[key] = button
         top.addLayout(segments)
+        # The language of the words on the figure, for the preview and every
+        # export of it
+        top.addSpacing(8)
+        top.addWidget(styled_label(S.FIGURE_LANGUAGE, "muted", wrap=False))
+        group = QButtonGroup(self)
+        group.setExclusive(True)
+        segments = QHBoxLayout()
+        segments.setSpacing(0)
+        self.language_buttons = {}
+        for key, label in S.FIGURE_LANGUAGES:
+            button = QPushButton(label)
+            button.setObjectName("segment")
+            button.setCheckable(True)
+            button.setChecked(key == self.figure_language)
+            button.clicked.connect(
+                lambda checked, k=key: self.set_language(k))
+            group.addButton(button)
+            segments.addWidget(button)
+            self.language_buttons[key] = button
+        top.addLayout(segments)
         layout.addLayout(top)
 
         self.title_edit = QLineEdit()
+        self.title_edit.setPlaceholderText(S.FIGURE_TITLE_PLACEHOLDER)
         self.title_edit.editingFinished.connect(self._redraw)
         layout.addWidget(self.title_edit)
 
@@ -429,6 +474,8 @@ class CompareScreen(Screen):
                  self.export_data_dialog, "primary"),
                 ("tex", S.EXPORT_TEX, S.EXPORT_TEX_TIP,
                  self.export_tex_dialog, None),
+                ("report", S.EXPORT_REPORT, S.EXPORT_REPORT_TIP, None,
+                 None),
                 ("pdf", S.EXPORT_PDF, None,
                  lambda: self.export_file_dialog("pdf"), None),
                 ("svg", S.EXPORT_SVG, None,
@@ -439,10 +486,14 @@ class CompareScreen(Screen):
             if kind:
                 button.setObjectName(kind)
             if tip:
-                button.setToolTip(tip)
-            button.clicked.connect(slot)
+                button.setToolTip(tooltip(tip))
+            if slot is not None:
+                button.clicked.connect(slot)
             buttons.addWidget(button)
             self.export_buttons[key] = button
+        # The report in the language chosen in its menu
+        self.export_buttons["report"].setMenu(
+            language_menu(self, self.export_report_dialog))
         buttons.addStretch(1)
         layout.addLayout(buttons)
         missing = [t for t in amorph_tex.TOOLS if t not in self.latex]
@@ -472,7 +523,7 @@ class CompareScreen(Screen):
     def add_folder_dialog(self):
         folder = self.choose_folder(S.CHOOSE_FOLDER)
         if folder:
-            self.add_folder(folder)
+            self.folderChosen.emit(folder)
 
     def add_folder(self, folder):
         """
@@ -486,14 +537,28 @@ class CompareScreen(Screen):
             return
         self.add_archives(paths)
 
+    def has_archive(self, path):
+        """
+        Whether the archive at path has a row, or is being read for one.
+        """
+        key = _key(path)
+        return key in self._reading or any(
+            row["archive"] and _key(row["archive"]) == key
+            for row in self.model.rows)
+
     def add_archives(self, paths):
         """
-        Read archives in worker threads and add a row for each.
+        Read archives in worker threads and add a row for each that has
+        none.
         """
         self.errors.hide()
         for path in paths:
             path = os.path.abspath(path)
             self.last_dir = os.path.dirname(path)
+            if self.has_archive(path):
+                continue
+            key = _key(path)
+            self._reading.add(key)
             self.pending += 1
             order = next(self._order)
 
@@ -501,20 +566,40 @@ class CompareScreen(Screen):
                 return order, digest.comparison_row(amorph_archive.read(path),
                                                     path)
 
-            def failed(error, path=path):
+            def done(result, key=key):
+                self._reading.discard(key)
+                self._loaded(result)
+
+            def failed(error, path=path, key=key):
+                self._reading.discard(key)
                 self.pending -= 1
                 self.errors.setText(S.CANNOT_READ_ARCHIVE.format(path)
                                     + ": " + error)
                 self.errors.show()
 
-            self.tasks.run(job, self._loaded, failed)
+            self.tasks.run(job, done, failed)
+
+    def add_results(self, results, path):
+        """
+        A row for results already read: those of a run done here or opened
+        from its folder, or of an archive opened on «Результаты»; path is
+        their archive. Nothing if it already has one. Returns whether a row
+        was added.
+        """
+        if path and self.has_archive(path):
+            return False
+        self.model.add(digest.comparison_row(results, path),
+                       next(self._order))
+        self.view.resizeColumnsToContents()
+        self.view.horizontalHeader().resizeSection(INTERVAL_COLUMN, 180)
+        return True
 
     def _loaded(self, result):
         self.pending -= 1
         order, row = result
         self.model.add(row, order)
         self.view.resizeColumnsToContents()
-        self.view.horizontalHeader().resizeSection(INTERVAL_COLUMN, 200)
+        self.view.horizontalHeader().resizeSection(INTERVAL_COLUMN, 180)
 
     def remove_selected(self):
         rows = {i.row() for i in self.view.selectionModel().selectedRows()}
@@ -607,12 +692,18 @@ class CompareScreen(Screen):
         self.style_note.setText(STYLE_NOTES[style])
         self._redraw()
 
+    def set_language(self, language):
+        self.figure_language = language
+        self.language_buttons[language].setChecked(True)
+        self._redraw()
+
     def _redraw(self):
         self.figure.clear()
         if self.pooled is not None:
             with matplotlib.rc_context(theme.matplotlib_style()):
                 figures.DRAW[self.figure_style](self.figure, self.pooled,
-                                                self.figure_title())
+                                                self.figure_title(),
+                                                self.figure_language)
         # Now rather than at idle time, when the window may be gone
         self.canvas.draw()
 
@@ -630,10 +721,13 @@ class CompareScreen(Screen):
     def export_data(self, folder):
         """
         The tables of PGFPlots of the joint report into folder, as
-        export_pgf.py writes them, with those of the two-panel figure.
+        export_pgf.py writes them, with those of the two-panel figure, in
+        the language of the figure.
         """
         pooled, title = self.pooled, self.figure_title()
-        self._export(lambda: amorph_tex.write_tables(pooled, folder, title))
+        language = self.figure_language
+        self._export(lambda: amorph_tex.write_tables(pooled, folder, title,
+                                                     language))
 
     def export_tex_dialog(self):
         folder = self.choose_folder(S.CHOOSE_TEX_FOLDER)
@@ -642,16 +736,32 @@ class CompareScreen(Screen):
 
     def export_tex(self, folder):
         """
-        The folder of the figure in the chosen style, ready for LaTeX.
+        The folder of the figure in the chosen style and language, ready
+        for LaTeX.
         """
         pooled, style = self.pooled, self.figure_style
-        title = self.figure_title()
+        title, language = self.figure_title(), self.figure_language
 
         def job():
-            amorph_tex.write_figure(pooled, folder, style, title)
+            amorph_tex.write_figure(pooled, folder, style, title, language)
             return folder
 
         self._export(job)
+
+    def export_report_dialog(self, language):
+        folder = self.choose_folder(S.CHOOSE_REPORT_FOLDER)
+        if folder:
+            self.export_report(folder, language)
+
+    def export_report(self, folder, language="ru"):
+        """
+        The report of the ticked runs for LaTeX (report.write_report), in
+        language ("ru" or "en"): report.tex with both figures and their
+        tables, to build with pdflatex.
+        """
+        rows, title = list(self.model.rows), self.figure_title()
+        self._export(lambda: report.write_report(rows, folder, title,
+                                                 language=language))
 
     def export_file_dialog(self, kind):
         stem = os.path.splitext(amorph_tex.FIGURES[self.figure_style][0])[0]
@@ -668,7 +778,7 @@ class CompareScreen(Screen):
         its preview as PNG.
         """
         pooled, style = self.pooled, self.figure_style
-        title = self.figure_title()
+        title, language = self.figure_title(), self.figure_language
         tools = self.latex
         if pooled is None:
             return
@@ -677,7 +787,7 @@ class CompareScreen(Screen):
             try:
                 with matplotlib.rc_context(theme.matplotlib_style()):
                     fig = Figure(figsize=PNG_SIZE[style], layout="constrained")
-                    figures.DRAW[style](fig, pooled, title)
+                    figures.DRAW[style](fig, pooled, title, language)
                     fig.savefig(path, dpi=PNG_DPI)
             except OSError as e:
                 self.report_error(S.CANNOT_EXPORT, S.CANNOT_SAVE.format(path)
@@ -689,7 +799,8 @@ class CompareScreen(Screen):
         def job():
             folder = tempfile.mkdtemp(prefix="amorph_tex_")
             try:
-                amorph_tex.write_figure(pooled, folder, style, title)
+                amorph_tex.write_figure(pooled, folder, style, title,
+                                        language)
                 built = amorph_tex.build(folder, style, kind, tools)
                 shutil.copyfile(built, path)
             finally:

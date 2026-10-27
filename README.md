@@ -101,6 +101,14 @@ Windows, and `AMORPH-GUI.app` on macOS, or in Terminal in its folder
 of files). It runs the sampler packed inside it, which then needs nothing
 more.
 
+**The first start of the interface is slow.** The first time after
+unpacking, the interface may take up to a minute to open, while the system
+checks every file of it: Microsoft Defender on Windows looks unsigned files
+up in its cloud, and Gatekeeper on macOS checks them too. The AMORPH splash
+screen shows at once with the step under way, and the window opens by
+itself: do not start the program again, which only opens another copy.
+Later starts take a few seconds.
+
 Guide to installing and operating:
 ==================================
 
@@ -242,7 +250,8 @@ It has four screens, listed on the left:
   there. The seeds (seed, seed + 1, ...) run one after another. The
   screen shows the number of saves and levels and the time, the output of
   the sampler (also kept in the folder as `run.log`), and the estimate of
-  the run so far, computed every few seconds from all its saves with their
+  the run so far, computed every second (less often on a slow computer or
+  late in a long run, when it takes longer) from all its saves with their
   posterior weights, as the post-processing computes them: the median of
   the amorphous fraction with its 50% and 90% intervals, a plot of how
   they moved over the saves, the effective sample size and log(Z), and
@@ -258,6 +267,17 @@ It has four screens, listed on the left:
   than 99% of the posterior. «Остановить» stops the sampler, keeps its
   complete saves, post-processes them and marks the run as incomplete;
   the seeds still waiting are cancelled.
+
+  «Открыть прогоны…» opens runs done earlier or on another computer: a
+  run folder (one with `config.yaml`, `sample_info.txt` and
+  `levels.txt`), or a folder with run folders in it, down to two levels.
+  Run folders and archives can also be dragged onto the window, many at a
+  time. Each run then shows on «Прогоны» with its output and its estimate
+  (the trace is rebuilt from its saves, which takes about 20 seconds for
+  10 000 saves), on «Результаты» and on «Сравнение». Its results come
+  from its archive if it is up to date; otherwise it is post-processed as
+  at the end of a run, which writes `posterior_sample.txt` and the archive
+  into its folder.
 * «Результаты»: each run is post-processed as `showresults.py` does it,
   and its archive is written in its folder. The tabs: «Итог», the median
   of the amorphous fraction with its 50% and 90% intervals, cards for the
@@ -271,9 +291,11 @@ It has four screens, listed on the left:
   the posterior samples (CSV) and the tables of PGFPlots that
   `export_pgf.py` writes («Данные для PGFPlots…», see "Drawing the fit
   figure with TikZ") save too.
-* «Сравнение»: a table of run archives, such as the seeds of a batch
-  (added when the batch ends), all the archives of a folder, or the
-  `run.amorph` files that the experiment and validate workflows upload.
+* «Сравнение»: a table of run archives, such as the seeds of a batch,
+  all the archives of a folder, or the `run.amorph` files that the
+  experiment and validate workflows upload. Every run shown on
+  «Результаты» has a row here, once: a run done here (a single seed too),
+  a run opened from its folder, an archive opened.
   Per archive: the data file, the settings, the seed, the options file of
   the sampler and its saves, the effective sample size, log(Z) less the
   best log(Z) of the runs of the same data and settings, the median of the
@@ -295,11 +317,22 @@ It has four screens, listed on the left:
   both figures, «TeX…» a folder with the figure, its tables and
   `build.bat` / `build.sh`, «PDF…» and «SVG…» build it with the LaTeX
   installed (TeX Live or MiKTeX: `pdflatex`, and `latex` with
-  `dvisvgm`), «PNG…» saves the preview. The table exports as CSV and
-  Markdown.
+  `dvisvgm`), «PNG…» saves the preview. «Отчёт LaTeX…» writes a folder
+  with `report.tex`, the whole report to build with `pdflatex
+  report.tex`: the result and the line for a paper, the table of the
+  runs with their checks, the data and the settings, the diagnostic
+  cards of each seed, both figures with their tables in `pgf/`, and how
+  to read the numbers, in Russian or in English as chosen in the menu of
+  the button; it needs pgfplots, babel with Russian and the cm-super
+  fonts. «Отчёт LaTeX…» on «Результаты» does the same for one
+  run. The table exports as CSV and Markdown.
 
 «Открыть архив…», on every screen, shows an archive on «Результаты».
-As «Итог» says, the fraction is a ratio of integrated intensities, not a
+A «?» next to a card, a figure or a group of settings explains in plain
+words what it shows (the 50% and 90% intervals, the levels, ESS,
+log(Z), the checks, each figure), and «Справка» (F1) has all these
+explanations on one page; the numbers, columns and buttons explain
+themselves in their tooltips. As «Итог» says, the fraction is a ratio of integrated intensities, not a
 mass fraction, and the spread between seeds is the run-to-run error of
 the sampler, not the posterior interval (see "Recommended settings and
 calibration"). The numbers and figures are those of `amorph_stats.py`,
@@ -790,6 +823,13 @@ latex xrd_fit.tex                                # writes xrd_fit.dvi
 dvisvgm --no-fonts --exact-bbox xrd_fit.dvi      # writes xrd_fit.svg
 ```
 
+The words of the figures (axes, legends, the note under the fraction) come
+with the tables, in English or in Russian: `export_pgf.py --language ru`,
+the switch «язык» of «Сравнение», the menu of «Данные для PGFPlots…» on
+«Результаты». The `.tex` files of `doc/figures` set them in Tempora, a
+Times-like font with Cyrillic, with the mathematics of newtxmath; tables
+of an older `export_pgf.py` get the English words.
+
 In the GUI, «Данные для PGFPlots…» on «Результаты» writes the same tables
 for a run, and «Сравнение» writes them for the ticked seeds together,
 with those of `doc/figures/xrd_seeds.tex`, the figure of several seeds:
@@ -821,7 +861,7 @@ The tables that are written into `doc/figures/pgf/` are
 | `xrd_samples_amorph.dat` | the same for the amorphous component |
 | `xrd_samples_xtal.dat` | the same for the crystalline peaks |
 | `xrd_samples.tex` | the `\addplot` commands for the faint sample curves |
-| `xrd_meta.tex` | LaTeX macros: axis limits, title, amorphous fraction |
+| `xrd_meta.tex` | LaTeX macros: axis limits, title, amorphous fraction: the median with its 50% interval (`\xrdamorph`, as $62.1^{+3.0}_{-3.9}$ %; the numbers in `\xrdamorphmedian`, `\xrdamorphlo`, `\xrdamorphhi`) |
 
 The first line of every `.dat` file contains column names without a comment
 prefix, for example `x model amorph xtal background`. The tables can therefore

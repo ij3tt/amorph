@@ -23,7 +23,9 @@ xrd_samples_model.dat    x and a number of posterior sample curves of the
 xrd_samples_amorph.dat   complete model, of the amorphous component and
 xrd_samples_xtal.dat     of the crystalline peaks
 xrd_meta.tex             LaTeX macros: axis limits, title, amorphous
-                         fraction and the number of sample curves
+                         fraction (the median with its 50% interval, as
+                         62.1 +3.0 -3.9 %) and the number of sample
+                         curves
 
 The tables are consumed by doc/figures/xrd_fit.tex. write_tables() writes
 the same files from curves in memory: the GUI exports one run or several
@@ -35,6 +37,7 @@ import os
 import numpy as np
 
 import amorph_stats
+import figure_labels
 
 
 def load_data(filename):
@@ -89,6 +92,33 @@ def amorphous_fraction(wide, narrow, x=None):
     if frac.size == 0:
         return float("nan")
     return 100.0 * frac.mean()
+
+
+def fraction_quantiles(wide, narrow, x=None):
+    """
+    The median of (amorphous)/(amorphous + crystalline) over the posterior
+    samples and its 50% interval (the 25% and 75% quantiles), in percent,
+    as the figure reports it. NaNs if no sample has either component.
+    """
+    frac = amorph_stats.amorphous_fraction(wide, narrow, x)
+    frac = frac[np.isfinite(frac)]
+    if frac.size == 0:
+        return (float("nan"),) * 3
+    q25, q50, q75 = np.percentile(100.0 * frac, [25.0, 50.0, 75.0])
+    return float(q50), float(q25), float(q75)
+
+
+def fraction_label(median, lo, hi, percent="\\,\\%"):
+    """
+    The fraction for the figure, in percent: the median with the distances
+    to the ends of its interval, $62.1^{+3.0}_{-3.9}$\\,\\%. The interval
+    is not symmetric, and it stays within 0-100% where a symmetric error
+    would not (near 100%: $98.0^{+1.5}_{-5.0}$, not 98 +- 10). percent
+    follows the number: "%" for matplotlib.
+    """
+    m = round(median, 1)
+    return "${0:.1f}^{{+{1:.1f}}}_{{-{2:.1f}}}${3}".format(
+        m, round(hi, 1) - m, m - round(lo, 1), percent)
 
 
 def sample_indices(n_points, n_curves, stride=0, max_points=0):
@@ -198,6 +228,9 @@ def main():
                         "name of the data file)")
     p.add_argument("--max-rows", type=int, default=0,
                    help="use at most this many posterior samples (0 = all)")
+    p.add_argument("--language", choices=figure_labels.LANGUAGES,
+                   default="en",
+                   help="language of the words on the figure (default: en)")
     args = p.parse_args()
 
     if args.data is None:
@@ -260,8 +293,8 @@ def main():
     mean_narrow = narrow.mean(axis=0)
     mean_bg = bg.mean(axis=0)
 
-    frac = amorphous_fraction(wide, narrow, x)
-    if not np.isfinite(frac):
+    frac = fraction_quantiles(wide, narrow, x)
+    if not np.isfinite(frac[0]):
         raise SystemExit("The amorphous fraction is undefined: no posterior "
                          "sample in {0} has a wide or a narrow "
                          "component".format(args.posterior))
@@ -272,25 +305,29 @@ def main():
     mean = {"model": mean_model, "amorph": mean_wide, "xtal": mean_narrow,
             "background": mean_bg}
     points, stride = write_tables(args.out, x, y, mean, samples, title, frac,
-                                  args.sample_stride, args.max_points)
+                                  args.sample_stride, args.max_points,
+                                  args.language)
     if rows.size:
         print("  {0} points per sample curve (stride {1})".format(points,
                                                                   stride))
-    print("Amorphous fraction = {0:.1f}%".format(frac))
+    print("Amorphous fraction = {0:.1f}% [{1:.1f}, {2:.1f}] (median and "
+          "50% interval)".format(*frac))
     print("Tables written to {0}/".format(args.out))
 
 
 def write_tables(out, x, y, mean, samples, title, fraction, sample_stride=0,
-                 max_points=24000):
+                 max_points=24000, language="en"):
     """
     Write the tables and macros of doc/figures/xrd_fit.tex into the folder
     out, which must exist: the data (x, y); mean, the posterior means of
     the curves, a dict of "model", "amorph", "xtal" and "background"; the
     faint sample curves, a dict of "model", "amorph" and "xtal" with one
     curve per row (none: zero rows); the title as LaTeX markup and the
-    amorphous fraction in percent. The GUI calls this too, for one run or
-    for several seeds pooled. Returns the number of points per sample curve
-    and the stride they were taken with.
+    amorphous fraction in percent, its median and the ends of its 50%
+    interval (fraction_quantiles); the words of the figure in language
+    (figure_labels). The GUI calls this too, for one run or for several
+    seeds pooled. Returns the number of points per sample curve and the
+    stride they were taken with.
     """
     x = np.asarray(x, dtype=float)
     y = np.asarray(y, dtype=float)
@@ -359,11 +396,29 @@ def write_tables(out, x, y, mean, samples, title, fraction, sample_stride=0,
     # ------------------------------------------------------------------
     # Macros for the LaTeX side
     # ------------------------------------------------------------------
+    words = figure_labels.LABELS[language]
     meta = os.path.join(out, "xrd_meta.tex")
-    with open(meta, "w") as f:
+    with open(meta, "w", encoding="utf-8") as f:
         f.write("% Generated by export_pgf.py -- do not edit by hand.\n")
         f.write("\\def\\xrdtitle{{{0}}}\n".format(title))
-        f.write("\\def\\xrdamorph{{{0:.1f}\\%}}\n".format(fraction))
+        # The median with its 50% interval, and the numbers of it
+        median, lo, hi = fraction
+        f.write("\\def\\xrdamorph{{{0}}}\n".format(
+            fraction_label(median, lo, hi)))
+        # The words of the figure, in its language
+        for macro, key in (("xrdamorphnote", "note"),
+                           ("xrdamorphname", "amorphous"),
+                           ("xrdylabel", "intensity"),
+                           ("xrdlegdata", "data"),
+                           ("xrdlegmodel", "model_mean"),
+                           ("xrdlegamorph", "amorph_mean"),
+                           ("xrdlegxtal", "xtal_mean"),
+                           ("xrdlegbg", "bg_mean")):
+            f.write("\\def\\{0}{{{1}}}\n".format(macro,
+                                                latex_text(words[key])))
+        f.write("\\def\\xrdamorphmedian{{{0:.1f}}}\n".format(median))
+        f.write("\\def\\xrdamorphlo{{{0:.1f}}}\\def\\xrdamorphhi{{{1:.1f}}}\n"
+                .format(lo, hi))
         f.write("\\def\\xrdxmin{{{0}}}\n".format(xmin))
         f.write("\\def\\xrdxmax{{{0}}}\n".format(xmax))
         f.write("\\def\\xrdymin{{0}}\n")

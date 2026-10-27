@@ -31,6 +31,7 @@ import sys
 import numpy as np
 
 import export_pgf
+import figure_labels
 
 # The figures: the .tex file that compiles each, and the files it needs
 FIGURES = {"fit": ("xrd_fit.tex", "xrd_fit_body.tex"),
@@ -66,13 +67,15 @@ def _number(value):
     return "{0:.3f}".format(value)
 
 
-def write_tables(pooled, out, title):
+def write_tables(pooled, out, title, language="en"):
     """
     Write the tables of both figures into the folder out (made if needed)
     for pooled (amorph_seeds.pool): those of export_pgf.py
-    (export_pgf.write_tables) and those of xrd_seeds_body.tex. title is
-    plain text, such as the name of the data file. Returns out.
+    (export_pgf.write_tables) and those of xrd_seeds_body.tex, with the
+    words of the figures in language ("en" or "ru", figure_labels). title
+    is plain text, such as the name of the data file. Returns out.
     """
+    words = figure_labels.LABELS[language]
     os.makedirs(out, exist_ok=True)
     x, y, c = pooled["x"], pooled["y"], pooled["curves"]
     ex = pooled["examples"]
@@ -82,7 +85,9 @@ def write_tables(pooled, out, title):
          "background": c["bg"]},
         {"model": ex["model_curve"], "amorph": ex["wide"],
          "xtal": ex["narrow"]},
-        export_pgf.latex_text(title), 100.0 * pooled["mean"])
+        export_pgf.latex_text(title),
+        [100.0 * pooled["quantiles"][i] for i in (2, 1, 3)],
+        language=language)
 
     halo = c["bg"] + c["wide"]
     lo, hi = pooled["band"]
@@ -106,18 +111,20 @@ def write_tables(pooled, out, title):
 
     def label(i):
         seed = seeds[i]
-        return "seed {0}".format(seed) if seed is not None \
-            else "run {0}".format(i + 1)
+        return words["seed"].format(seed) if seed is not None \
+            else words["run"].format(i + 1)
 
     # One colour per seed, in turn (seed1 to seed6 of xrd_seeds_body.tex)
-    with open(os.path.join(out, "seeds_halos.tex"), "w") as f:
+    with open(os.path.join(out, "seeds_halos.tex"), "w",
+              encoding="utf-8") as f:
         f.write("% Written by the AMORPH GUI -- do not edit by hand.\n")
         if len(seeds) > 1:
             for i, name in enumerate(names):
                 f.write("\\addplot[seeds halo, seed{0}, forget plot] "
                         "table[x=x, y={1}] {{\\xrddatadir seeds_halo.dat}};\n"
                         .format(i % 6 + 1, name))
-    with open(os.path.join(out, "seeds_densities.tex"), "w") as f:
+    with open(os.path.join(out, "seeds_densities.tex"), "w",
+              encoding="utf-8") as f:
         f.write("% Written by the AMORPH GUI -- do not edit by hand.\n")
         for i, name in enumerate(names):
             f.write("\\addplot[seeds density, seed{0}] table[x=f, y={1}] "
@@ -128,28 +135,42 @@ def write_tables(pooled, out, title):
     q = pooled["quantiles"]
     count = len(seeds)
     known = [str(s) for s in seeds if s is not None]
-    which = (", seeds " + ", ".join(known)) if known and count > 1 else \
-        (", seed " + known[0] if known else "")
-    if pooled["spread"] is None:
-        spread = "one run"
+    if known and count > 1:
+        which = words["title_seeds"].format(", ".join(known))
     else:
-        spread = "spread of the medians of the seeds " + _number(
-            pooled["spread"])
+        which = words["title_seed"].format(known[0]) if known else ""
+    if pooled["spread"] is None:
+        spread = words["one_run"]
+    else:
+        spread = words["spread"].format(_number(pooled["spread"]))
     ymax = 50.0 * np.ceil(1.2 * max(y.max(), np.max(hi)) / 50.0)
     edges_lo, edges_hi = edges[0], edges[-1]
-    with open(os.path.join(out, "seeds_meta.tex"), "w") as f:
+    with open(os.path.join(out, "seeds_meta.tex"), "w",
+              encoding="utf-8") as f:
         f.write("% Written by the AMORPH GUI -- do not edit by hand.\n")
         f.write("\\def\\seedstitle{{{0}}}\n".format(
             export_pgf.latex_text(title + which)))
-        f.write("\\def\\seedscount{{{0}}}\n".format(
-            "{0} seeds and pooled".format(count) if count > 1
-            else "the fraction"))
+        f.write("\\def\\seedscount{{{0}}}\n".format(export_pgf.latex_text(
+            words["count"].format(count) if count > 1 else words["one"])))
+        # The words of the figure, in its language
+        for macro, key in (("seedsylabel", "counts"),
+                           ("seedslegband", "band"),
+                           ("seedslegbg", "background"),
+                           ("seedsleghalo", "halo"),
+                           ("seedslegmodel", "model"),
+                           ("seedslegxtal", "crystal"),
+                           ("seedsfractionlabel", "fraction"),
+                           ("seedsdensitylabel", "density"),
+                           ("seedspooled", "pooled")):
+            f.write("\\def\\{0}{{{1}}}\n".format(
+                macro, export_pgf.latex_text(words[key])))
         f.write("\\def\\seedsmedian{{{0}}}\n".format(_number(q[2])))
         f.write("\\def\\seedsqlo{{{0}}}\\def\\seedsqhi{{{1}}}\n".format(
             _number(q[1]), _number(q[3])))
         f.write("\\def\\seedsqqlo{{{0}}}\\def\\seedsqqhi{{{1}}}\n".format(
             _number(q[0]), _number(q[4])))
-        f.write("\\def\\seedsspread{{{0}}}\n".format(spread))
+        f.write("\\def\\seedsspread{{{0}}}\n".format(
+            export_pgf.latex_text(spread)))
         f.write("\\def\\seedsxmin{{{0}}}\\def\\seedsxmax{{{1}}}\n".format(
             np.floor(x.min()), np.ceil(x.max())))
         f.write("\\def\\seedsymax{{{0}}}\n".format(ymax))
@@ -177,14 +198,15 @@ def _script_lines(stem, windows):
              "set -e", 'cd "$(dirname "$0")"'] + commands)
 
 
-def write_figure(pooled, folder, figure, title):
+def write_figure(pooled, folder, figure, title, language="en"):
     """
     The folder of a figure ("fit" or "seeds"), ready for LaTeX: the tables
-    in pgf/ (write_tables), the .tex files of the figure, and build.sh and
-    build.bat that make its PDF and SVG. Returns the path of its .tex file.
+    in pgf/ (write_tables, with the words in language), the .tex files of
+    the figure, and build.sh and build.bat that make its PDF and SVG.
+    Returns the path of its .tex file.
     """
     os.makedirs(folder, exist_ok=True)
-    write_tables(pooled, os.path.join(folder, DATA_DIR), title)
+    write_tables(pooled, os.path.join(folder, DATA_DIR), title, language)
     source = template_dir()
     for name in FIGURES[figure]:
         shutil.copyfile(os.path.join(source, name),

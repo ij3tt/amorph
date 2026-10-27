@@ -3,11 +3,12 @@ The look of the GUI, as the design shows it: a light interface with white
 cards on a grey ground, a blue accent, amber for the background of the
 model and for warnings, red and green for the diagnostic levels, blue for
 the amorphous and orange for the crystalline part. The colours, the fonts
-and the style sheet of every screen are here, and the styling of the
-pyqtgraph and matplotlib plots.
+and the style sheet of every screen are here, the mark of AMORPH, and the
+styling of the pyqtgraph and matplotlib plots.
 """
 
-from PySide6.QtGui import QColor, QFont
+from PySide6.QtCore import QPointF, Qt
+from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen
 
 # ------------------------------------------------------------------ colours
 
@@ -73,7 +74,8 @@ LEVELS = {
 # The status of a run on «Прогоны»
 STATUS_COLORS = {"waiting": MUTED, "running": ACCENT, "stopping": AMBER,
                  "postprocessing": ACCENT, "done": GREEN,
-                 "incomplete": AMBER, "failed": RED, "cancelled": MUTED}
+                 "incomplete": AMBER, "failed": RED, "cancelled": MUTED,
+                 "opening": ACCENT}
 
 # -------------------------------------------------------------------- fonts
 
@@ -194,13 +196,25 @@ QPushButton#danger {{ color: {AMBER_TEXT}; border: 1px solid #C2410C;
 QPushButton#danger:disabled {{ color: #9AA3AF; border-color: {LINE}; }}
 QPushButton#small {{ padding: 4px 10px; font-size: 9pt; }}
 /* A group of buttons of which one is chosen, and the chips that show or
-   hide the layers of a plot */
+   hide the layers of a plot. No text-decoration for a state: Qt sets the
+   font of a widget once, from its first state, and all the chips stayed
+   struck through */
 QPushButton#segment {{ border-radius: 0; padding: 6px 12px; font-size: 9pt; }}
 QPushButton#segment:checked {{ background: {ACCENT}; color: white;
     border-color: {ACCENT}; font-weight: 600; }}
 QPushButton#chip {{ border-radius: 13px; padding: 4px 12px; font-size: 9pt; }}
 QPushButton#chip:!checked {{ color: {MUTED}; background: {GROUND};
-    border-style: dashed; text-decoration: line-through; }}
+    border-style: dashed; }}
+/* The «?» next to a title, and the explanation that it opens (a window of
+   its own: square, as its corners would show the desktop) */
+QToolButton#help {{ color: {MUTED}; background: {SURFACE};
+    border: 1px solid {FIELD_LINE}; border-radius: 10px; font-weight: 700;
+    font-size: 8pt; padding: 0; }}
+QToolButton#help:hover {{ color: {ACCENT}; border-color: {ACCENT};
+    background: {ACCENT_SOFT}; }}
+QFrame#helpPopup {{ background: {SURFACE}; border: 1px solid {FIELD_LINE}; }}
+QFrame#helpPopup QLabel {{ background: transparent; }}
+QTextBrowser#help {{ background: {SURFACE}; border: none; }}
 QLabel#okBadge {{ color: {GREEN}; background: {GREEN_SOFT};
     border: 1px solid {GREEN_LINE}; border-radius: 10px; padding: 1px 10px;
     font-weight: 600; font-size: 9pt; }}
@@ -283,6 +297,31 @@ def qcolor(value, alpha=255):
     color = QColor(value)
     color.setAlpha(alpha)
     return color
+
+
+def paint_logo(p, scale=1.0):
+    """
+    The mark of AMORPH, a broad hump and a sharp peak on a baseline, in a
+    box of 24 by 24 points times scale at the origin of the painter p.
+    """
+    p.save()
+    p.setRenderHint(QPainter.Antialiasing)
+    p.scale(scale, scale)
+    pen = QPen(QColor(INK), 1.8)
+    pen.setCapStyle(Qt.RoundCap)
+    pen.setJoinStyle(Qt.RoundJoin)
+    p.setPen(pen)
+    p.setBrush(Qt.NoBrush)
+    p.drawLine(QPointF(2, 19), QPointF(22, 19))
+    hump = QPainterPath(QPointF(3, 18))
+    hump.cubicTo(QPointF(6, 18), QPointF(6, 9), QPointF(9, 9))
+    hump.cubicTo(QPointF(12, 9), QPointF(12, 18), QPointF(15, 18))
+    p.drawPath(hump)
+    spike = QPainterPath(QPointF(16, 18))
+    spike.lineTo(QPointF(17.2, 6))
+    spike.lineTo(QPointF(18.4, 18))
+    p.drawPath(spike)
+    p.restore()
 
 
 def swatches(items):
