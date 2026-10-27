@@ -10,7 +10,8 @@ The ticked runs (all but those that failed a red check, unless the user
 ticks otherwise) make the joint report: the fraction of all of them
 together, how far apart the seeds are, and a figure, in the style of
 doc/figures/xrd_fit.tex or with two panels, previewed here and exported as
-the tables of PGFPlots, a folder for LaTeX, PDF, SVG or PNG (amorph_tex).
+the tables of PGFPlots, a folder for LaTeX, PDF, SVG or PNG (amorph_tex),
+and as a whole report for LaTeX (report.py).
 """
 
 import bisect
@@ -35,7 +36,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QApplication, QButtonGroup,
 import amorph_archive
 import amorph_tex
 
-from amorph_gui import digest, figures
+from amorph_gui import digest, figures, report
 from amorph_gui import strings as S
 from amorph_gui import theme
 from amorph_gui.widgets import Banner, HelpButton, Screen, card, \
@@ -451,6 +452,8 @@ class CompareScreen(Screen):
                  self.export_data_dialog, "primary"),
                 ("tex", S.EXPORT_TEX, S.EXPORT_TEX_TIP,
                  self.export_tex_dialog, None),
+                ("report", S.EXPORT_REPORT, S.EXPORT_REPORT_TIP,
+                 self.export_report_dialog, None),
                 ("pdf", S.EXPORT_PDF, None,
                  lambda: self.export_file_dialog("pdf"), None),
                 ("svg", S.EXPORT_SVG, None,
@@ -708,6 +711,20 @@ class CompareScreen(Screen):
             return folder
 
         self._export(job)
+
+    def export_report_dialog(self):
+        folder = self.choose_folder(S.CHOOSE_REPORT_FOLDER)
+        if folder:
+            self.export_report(folder)
+
+    def export_report(self, folder):
+        """
+        The report of the ticked runs for LaTeX (report.write_report):
+        report.tex with both figures and their tables, to build with
+        pdflatex.
+        """
+        rows, title = list(self.model.rows), self.figure_title()
+        self._export(lambda: report.write_report(rows, folder, title))
 
     def export_file_dialog(self, kind):
         stem = os.path.splitext(amorph_tex.FIGURES[self.figure_style][0])[0]

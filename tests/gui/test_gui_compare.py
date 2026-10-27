@@ -264,7 +264,12 @@ def test_the_joint_report_and_its_figure(window, qtbot, archives, tmp_path):
     screen.export_tex(tex)
     png = str(tmp_path / "figure.png")
     screen.export_file("png", png)
+    report = str(tmp_path / "report")
+    screen.export_report(report)
     qtbot.waitUntil(lambda: screen.tasks.active == 0, timeout=30000)
+    with open(os.path.join(report, "report.tex"), encoding="utf-8") as f:
+        assert "{0:.3f}".format(screen.pooled["quantiles"][2]) in f.read()
+    assert os.path.isfile(os.path.join(report, "pgf", "seeds_halo.dat"))
     for name in ("xrd_meta.tex", "xrd_mean.dat", "seeds_meta.tex",
                  "seeds_curves.dat"):
         assert os.path.isfile(os.path.join(data, name))

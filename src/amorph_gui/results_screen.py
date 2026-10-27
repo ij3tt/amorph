@@ -4,7 +4,8 @@ post-processing or from an archive. The tabs show the fraction with its
 intervals, the diagnostic cards, the decomposition of the scan and the
 distribution of the fraction; the figures of amorph_results.FIGURES; and
 the whole report. The header exports the figures, the archive, the
-posterior samples and the tables of PGFPlots (export_pgf.py).
+posterior samples, the tables of PGFPlots (export_pgf.py) and the report
+for LaTeX (report.py).
 """
 
 import os
@@ -22,7 +23,7 @@ import amorph_results
 import amorph_seeds
 import amorph_tex
 
-from amorph_gui import digest, helptext
+from amorph_gui import digest, helptext, report
 from amorph_gui import strings as S
 from amorph_gui import theme
 from amorph_gui.widgets import (Banner, Card, FigureView, HelpButton,
@@ -83,7 +84,9 @@ class ResultsScreen(Screen):
             self.add_button(S.SAVE_FIGURES, self.save_figures,
                             S.SAVE_FIGURES_TIP),
             self.add_button(S.EXPORT_DATA, self.save_pgf_data,
-                            S.EXPORT_DATA_ONE_TIP)]
+                            S.EXPORT_DATA_ONE_TIP),
+            self.add_button(S.EXPORT_REPORT, self.save_report,
+                            S.EXPORT_REPORT_TIP)]
         for button in self.export_buttons:
             button.setEnabled(False)
 
@@ -459,6 +462,24 @@ class ResultsScreen(Screen):
             return folder
 
         self._export(job)
+
+    def save_report(self):
+        if self.results is None:
+            return
+        folder = QFileDialog.getExistingDirectory(self,
+                                                  S.CHOOSE_REPORT_FOLDER)
+        if folder:
+            self.write_report(folder)
+
+    def write_report(self, folder):
+        """
+        The report of the run for LaTeX (report.write_report) in folder:
+        report.tex with the figures and their tables, to build with
+        pdflatex.
+        """
+        rows = report.results_rows(self.results, self.archive)
+        title = str(self.results.info.get("data_file", "amorph"))
+        self._export(lambda: report.write_report(rows, folder, title))
 
     def _export(self, job, done_text=S.SAVED):
         self.tasks.run(job, lambda path: self.message.emit(

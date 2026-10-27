@@ -43,6 +43,12 @@ Pre-releases (v1.1.0-rc.1, ...) come before the release, on GitHub only.
   there), opened from its folder, or an archive opened.
 - «Данные для PGFPlots…» on «Результаты» writes the tables of
   `export_pgf.py` for the run.
+- «Отчёт LaTeX…» on «Результаты» and «Сравнение» writes a folder with
+  `report.tex` to build with `pdflatex`: the result of the run or of the
+  ticked seeds together and the line for a paper, the table of the runs
+  with their checks, the data and the settings, the diagnostic cards of
+  each run, both figures with their tables, and how to read the numbers
+  (`src/amorph_gui/report.py`).
 - `doc/figures/xrd_fit.tex` also builds SVG: `latex` and `dvisvgm`.
 - `src/amorph_seeds.py` pools the seeds of a sample;
   `export_pgf.write_tables` writes the tables from curves in memory;

@@ -147,6 +147,18 @@ def test_exports(window, qtbot, archives, tmp_path, monkeypatch):
     with open(os.path.join(pgf, "xrd_meta.tex")) as f:
         assert "\\def\\xrdtitle{demo\\_data.txt}\n" in f.read()
 
+    # The report for LaTeX, with both figures and their tables
+    folder = str(tmp_path / "report")
+    screen.write_report(folder)
+    qtbot.waitUntil(lambda: screen.tasks.active == 0, timeout=20000)
+    for name in ("report.tex", "xrd_fit_body.tex", "xrd_seeds_body.tex",
+                 os.path.join("pgf", "xrd_meta.tex"),
+                 os.path.join("pgf", "seeds_meta.tex")):
+        assert os.path.isfile(os.path.join(folder, name)), name
+    median = screen.results.diagnosis["fraction"]["q50"]
+    with open(os.path.join(folder, "report.tex"), encoding="utf-8") as f:
+        assert "{0:.3f}".format(median) in f.read()
+
 
 def test_results_of_a_folder_are_archived_on_export(window, qtbot,
                                                     fake_run, tmp_path):

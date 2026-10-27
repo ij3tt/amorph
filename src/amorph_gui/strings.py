@@ -615,6 +615,11 @@ EXPORT_DATA_ONE_TIP = ("Таблицы и макросы для PGFPlots, как
 EXPORT_TEX = "TeX…"
 EXPORT_TEX_TIP = ("Папка рисунка: .tex, таблицы в pgf/ и build.bat / "
                   "build.sh, которые собирают PDF и SVG")
+EXPORT_REPORT = "Отчёт LaTeX…"
+EXPORT_REPORT_TIP = ("Папка с report.tex — отчёт целиком: результат, прогоны, "
+                     "настройки, диагностика и оба рисунка с их таблицами. "
+                     "Соберите его сами: pdflatex report.tex")
+CHOOSE_REPORT_FOLDER = "Папка для отчёта LaTeX"
 EXPORT_PDF = "PDF…"
 EXPORT_SVG = "SVG…"
 EXPORT_PNG = "PNG…"
@@ -657,3 +662,51 @@ PREF_RUNS_TIP = ("Каждый прогон получает в ней свою 
                  "<дата>_<данные>_seed<k> с config.yaml, файлом параметров "
                  "и данными.")
 BROWSE = "Обзор…"
+
+# ------------------------------------------------- the report for LaTeX
+# Plain text: report.py turns it into LaTeX
+REPORT_TITLE = "Отчёт AMORPH: {0}"
+REPORT_DATE = "{date} · AMORPH {version}"
+REPORT_HOW_TO_BUILD = ("Соберите отчёт в этой папке: pdflatex report.tex. "
+                       "Нужны пакеты pgfplots, babel (русский) и шрифты "
+                       "cm-super; рисунки берут таблицы из pgf/.")
+REPORT_RESULT = "Результат"
+REPORT_FRACTION = ("Доля аморфной составляющей: медиана {q50:.3f}; с "
+                   "вероятностью 50% — от {q25:.3f} до {q75:.3f}, 90% — от "
+                   "{q05:.3f} до {q95:.3f}.")
+REPORT_POOLED = ("{n} {seeds} вместе: каждый сид с равным весом, его "
+                 "сохранения — со своими апостериорными весами. Разброс "
+                 "медиан сидов {spread:.3f}, эффективный размер выборки "
+                 "всего {ess:.0f}.")
+REPORT_ONE_RUN = "Один прогон; эффективный размер выборки {ess:.0f}."
+REPORT_PAPER = "Строка для статьи:"
+REPORT_RUNS = "Прогоны"
+# The columns of the table of the runs, \n where a heading breaks
+REPORT_COLUMNS = ["seed", "Режим", "Сохранения", "ESS", "Δ log Z",
+                  "Доля\n[50% интервал]", "Вес\n< 0.2", "Вес у\nпредела",
+                  "Проверка"]
+REPORT_SETTINGS = "Данные и настройки"
+REPORT_SETTINGS_DIFFER = ("Настройки модели у прогонов различаются; здесь — "
+                          "настройки первого.")
+REPORT_SETTING_ROWS = [
+    ("data_file", "Файл данных"),
+    ("range", "Диапазон анализа, 2θ"),
+    ("points", "Точек"),
+    ("control_points", "Контрольные точки фона, 2θ"),
+    ("edges", "Область широких пиков (доля диапазона)"),
+    ("nu", "ν узких пиков"),
+    ("caps", "Наибольшее число узких / широких пиков"),
+    ("options", "Режим сэмплера")]
+REPORT_DIAGNOSIS = "Диагностика"
+REPORT_DIAGNOSIS_RUN = "seed {0}"
+REPORT_FIGURES = "Рисунки"
+REPORT_FIGURE_FIT = (
+    "Скан и средние по апостериорному распределению модель, аморфная "
+    "часть, кристаллические пики и фон; бледные линии — выборки, поровну "
+    "от каждого сида. «Amorphous» на рисунке — среднее значение доли, в "
+    "тексте — медиана.")
+REPORT_FIGURE_SEEDS = (
+    "(a) Скан, фон, аморфное гало, кристаллические пики и модель с 90% "
+    "полосой; пунктир — гало каждого сида. (b) Распределение доли каждого "
+    "сида и общее.")
+REPORT_NOTES = "Как читать"
